@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Calculator, Loader2, Lightbulb, Backspace, Divide, Minus, Plus, X as Times, Equal } from "lucide-react";
+import { Calculator, Loader2, Lightbulb, Delete as Backspace, Divide, Minus, Plus, X as Times, Equal } from "lucide-react";
 import { solveMathProblem, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
