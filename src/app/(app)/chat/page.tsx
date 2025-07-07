@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
@@ -213,7 +214,7 @@ export default function AiCalculatorPage() {
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
-                       <div className="p-4 rounded-lg bg-muted border min-h-36 flex flex-col justify-between">
+                       <div className="p-4 rounded-lg bg-muted border min-h-40 flex flex-col justify-between">
                             <div className="flex justify-between items-start min-h-8">
                                 {imageDataUri ? (
                                     <div className="relative">
@@ -230,7 +231,7 @@ export default function AiCalculatorPage() {
                             
                             <div className="text-right">
                                 {result ? (
-                                     <div className="text-5xl font-mono text-foreground font-semibold truncate h-12 flex justify-end items-center">
+                                     <div className="text-5xl font-mono text-foreground font-semibold text-right break-all min-h-[56px] flex items-center justify-end">
                                         <BlockMath math={result.latexAnswer} />
                                     </div>
                                 ) : (
@@ -241,7 +242,7 @@ export default function AiCalculatorPage() {
                                         onChange={(e) => setProblem(e.target.value)}
                                         disabled={isLoading}
                                         autoFocus
-                                        className="text-5xl h-auto font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-right"
+                                        className="text-5xl h-auto font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-right break-all"
                                     />
                                 )}
                             </div>
@@ -308,19 +309,19 @@ export default function AiCalculatorPage() {
                         )}
 
                         {showExplanation && (
-                             <Alert variant="default" className="w-full">
-                                <AlertTitle className="font-bold text-lg flex items-center gap-2">
+                             <div className="w-full">
+                                <div className="flex items-center gap-2 font-bold text-lg mb-2">
                                     <Lightbulb />
                                     Explanation
-                                </AlertTitle>
-                                <AlertDescription className="pt-2 text-base leading-relaxed overflow-x-auto">
+                                </div>
+                                <div className="max-h-72 w-full overflow-auto rounded-md border bg-muted/50 p-4 text-base leading-relaxed">
                                     <BlockMath math={result.latexExplanation} renderError={(error) => {
                                         console.error("KaTeX Error:", error);
                                         toast({ title: "Rendering Error", description: "Could not display the explanation correctly.", variant: "destructive" });
                                         return <pre className="text-destructive whitespace-pre-wrap">{result.latexExplanation}</pre>;
                                     }} />
-                                </AlertDescription>
-                            </Alert>
+                                </div>
+                            </div>
                         )}
                     </CardFooter>
                 )}
