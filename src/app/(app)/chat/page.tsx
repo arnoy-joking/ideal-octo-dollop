@@ -14,7 +14,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Calculator, Loader2, Lightbulb, Delete, Divide, Minus, Plus, X as Times, Equal, Camera, ImageUp, Trash2 } from "lucide-react";
+import { Calculator, Loader2, Lightbulb, Delete, Equal, Camera, ImageUp, Trash2 } from "lucide-react";
 import { solveMathProblem, type MathProblemInput, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -71,7 +71,7 @@ export default function AiCalculatorPage() {
     const handleButtonClick = (value: string) => {
         if (isLoading) return;
         
-        const isOperator = [' + ', ' - ', ' * ', ' / '].includes(value);
+        const isOperator = ['+', '-', '*', '/'].includes(value);
 
         if (result && !showExplanation) {
              if (isOperator) {
@@ -260,6 +260,12 @@ export default function AiCalculatorPage() {
                         </div>
                         
                         <div className="grid grid-cols-5 gap-2">
+                             <Button type="button" variant="outline" onClick={() => handleButtonClick('sin(')}>sin</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('cos(')}>cos</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('tan(')}>tan</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('log(')}>log</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('π')}>π</Button>
+
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('(')}>(</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(')')}>)</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('[')}>[</Button>
@@ -275,19 +281,19 @@ export default function AiCalculatorPage() {
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('7')}>7</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('8')}>8</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('9')}>9</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' / ')} aria-label="Divide"><Divide /></Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')} aria-label="Divide">/</Button>
                             <Button type="button" variant="outline" onClick={handleBackspace} aria-label="Backspace"><Delete /></Button>
 
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('4')}>4</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('5')}>5</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('6')}>6</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' * ')} aria-label="Multiply"><Times /></Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' - ')} aria-label="Subtract"><Minus /></Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('*')} aria-label="Multiply">×</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('-')} aria-label="Subtract">−</Button>
                             
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('1')}>1</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('2')}>2</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('3')}>3</Button>
-                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' + ')} aria-label="Add"><Plus /></Button>
+                             <Button type="button" variant="outline" onClick={() => handleButtonClick('+')} aria-label="Add">+</Button>
                              <Button type="submit" variant="primary" className="row-span-2 text-lg" disabled={isLoading || (!problem.trim() && !imageDataUri)}>
                                 {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Equal className="h-6 w-6"/>}
                             </Button>

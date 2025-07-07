@@ -27,7 +27,7 @@ const calculatorPrompt = ai.definePrompt({
     name: 'calculatorPrompt',
     input: { schema: MathProblemInputSchema },
     output: { schema: MathProblemOutputSchema },
-    prompt: `You are an expert mathematician and a helpful calculator for higher mathematics, including calculus (integration, differentiation), trigonometry, complex numbers, matrices, vectors, and statistics.
+    prompt: `You are an expert mathematician and a helpful calculator for higher mathematics, including calculus (integration, differentiation), trigonometry, logarithms, complex numbers, matrices, vectors, and statistics.
     
     The user will provide a mathematical problem, potentially including an image.
 
@@ -39,6 +39,8 @@ const calculatorPrompt = ai.definePrompt({
     - Definite Integral: integrate x^2 from 0 to 5
     - Matrices: [[1, 2], [3, 4]]
     - Complex numbers: (3 + 4i) * (2 - i)
+    - Trigonometry: sin(pi/2), cos(0), tan(45deg)
+    - Logarithms: log(100), ln(e^2)
     
     Your task is to:
     1.  Solve the problem accurately.
