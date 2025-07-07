@@ -121,10 +121,10 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
         });
 
         if (newLessons.length > 0) {
-            replace(newLessons.map(l => ({...l, id: crypto.randomUUID()})));
+            append(newLessons.map(l => ({...l, id: crypto.randomUUID()})));
             toast({
-                title: 'Lessons Parsed',
-                description: `Successfully added ${newLessons.length} lessons. ${errors > 0 ? `${errors} lines had formatting issues and were ignored.` : ''}`
+                title: 'Lessons Appended',
+                description: `Successfully appended ${newLessons.length} lessons. ${errors > 0 ? `${errors} lines had formatting issues and were ignored.` : ''}`
             });
         } else {
             toast({
