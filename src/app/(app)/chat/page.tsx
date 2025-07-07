@@ -262,9 +262,15 @@ export default function AiCalculatorPage() {
                         <div className="grid grid-cols-5 gap-2">
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('(')}>(</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(')')}>)</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('[')}>[</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick(']')}>]</Button>
+                            <Button type="button" variant="destructive" onClick={handleClear}>C</Button>
+
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('∫')}>∫</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('d/dx(')}>d/dx</Button>
-                            <Button type="button" variant="destructive" onClick={handleClear}>C</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^')}>xʸ</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('sqrt(')}>√</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('i')}>i</Button>
 
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('7')}>7</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('8')}>8</Button>
@@ -276,20 +282,18 @@ export default function AiCalculatorPage() {
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('5')}>5</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('6')}>6</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' * ')} aria-label="Multiply"><Times /></Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^')}>xʸ</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' - ')} aria-label="Subtract"><Minus /></Button>
                             
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('1')}>1</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('2')}>2</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('3')}>3</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' - ')} aria-label="Subtract"><Minus /></Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('sqrt(')}>√</Button>
-
-                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('0')}>0</Button>
-                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('.')}>.</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(' + ')} aria-label="Add"><Plus /></Button>
-                            <Button type="submit" variant="primary" className="col-span-2 text-lg" disabled={isLoading || (!problem.trim() && !imageDataUri)}>
+                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' + ')} aria-label="Add"><Plus /></Button>
+                             <Button type="submit" variant="primary" className="row-span-2 text-lg" disabled={isLoading || (!problem.trim() && !imageDataUri)}>
                                 {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Equal className="h-6 w-6"/>}
                             </Button>
+
+                            <Button type="button" variant="secondary" className="col-span-3" onClick={() => handleButtonClick('0')}>0</Button>
+                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('.')}>.</Button>
                         </div>
                     </CardContent>
                 </form>
@@ -350,4 +354,5 @@ export default function AiCalculatorPage() {
             </Dialog>
         </main>
     );
-}
+
+    
