@@ -10,10 +10,10 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-export const SuggestGoalsInputSchema = z.string().describe("The user's current list of learning goals, separated by newlines.");
+const SuggestGoalsInputSchema = z.string().describe("The user's current list of learning goals, separated by newlines.");
 export type SuggestGoalsInput = z.infer<typeof SuggestGoalsInputSchema>;
 
-export const SuggestGoalsOutputSchema = z.string().describe('A revised list of learning goals, improved to be more specific, measurable, achievable, relevant, and time-bound (SMART). The output should be a list separated by newlines.');
+const SuggestGoalsOutputSchema = z.string().describe('A revised list of learning goals, improved to be more specific, measurable, achievable, relevant, and time-bound (SMART). The output should be a list separated by newlines.');
 export type SuggestGoalsOutput = z.infer<typeof SuggestGoalsOutputSchema>;
 
 
