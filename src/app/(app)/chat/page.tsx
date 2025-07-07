@@ -292,7 +292,7 @@ export default function AiCalculatorPage() {
                                     <Lightbulb />
                                     Explanation
                                 </AlertTitle>
-                                <AlertDescription className="pt-2 text-sm leading-relaxed">
+                                <AlertDescription className="pt-2 text-sm leading-relaxed whitespace-pre-wrap">
                                     <BlockMath math={result.latexExplanation} />
                                 </AlertDescription>
                             </Alert>
