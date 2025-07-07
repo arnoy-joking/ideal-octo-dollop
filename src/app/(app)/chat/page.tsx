@@ -7,6 +7,7 @@ import { Calculator, Loader2, Lightbulb, Delete as Backspace, Divide, Minus, Plu
 import { solveMathProblem, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import 'katex/dist/katex.min.css';
 import { BlockMath } from 'react-katex';
 
 export default function AiCalculatorPage() {
@@ -132,8 +133,8 @@ export default function AiCalculatorPage() {
                             )}
                         </div>
                         <div className="grid grid-cols-5 gap-2">
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('derivative of ')}>d/dx</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('integrate ')}>∫</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('d/dx(')}>d/dx</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('∫ ')}>∫</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('(')}>(</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(')')}>)</Button>
                             <Button type="button" variant="outline" onClick={handleBackspace} aria-label="Backspace"><Backspace /></Button>

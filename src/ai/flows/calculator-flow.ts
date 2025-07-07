@@ -26,7 +26,12 @@ const calculatorPrompt = ai.definePrompt({
     output: { schema: MathProblemOutputSchema },
     prompt: `You are an expert mathematician and a helpful calculator for higher mathematics, including calculus (integration, differentiation), trigonometry, and complex numbers.
     
-    The user will provide a mathematical problem.
+    The user will provide a mathematical problem. You should handle both natural language ("derivative of x^2") and common mathematical notation.
+
+    Examples of notation to support:
+    - Differentiation: d/dx(x^2)
+    - Indefinite Integral: ∫ x^2 dx
+    - Definite Integral: integrate x^2 from 0 to 5
     
     Your task is to:
     1.  Solve the problem accurately.
