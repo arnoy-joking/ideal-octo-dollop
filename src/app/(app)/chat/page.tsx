@@ -1,10 +1,20 @@
 'use client';
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Calculator, Loader2, Lightbulb, Delete as Backspace, Divide, Minus, Plus, X as Times, Equal } from "lucide-react";
-import { solveMathProblem, type MathProblemOutput } from "@/ai/flows/calculator-flow";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Calculator, Loader2, Lightbulb, Delete as Backspace, Divide, Minus, Plus, X as Times, Equal, Camera, ImageUp, Trash2 } from "lucide-react";
+import { solveMathProblem, type MathProblemInput, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import 'katex/dist/katex.min.css';
@@ -17,6 +27,45 @@ export default function AiCalculatorPage() {
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
 
+    const [imageDataUri, setImageDataUri] = useState<string | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    useEffect(() => {
+        if (!isCameraOpen) {
+            if (videoRef.current?.srcObject) {
+                const stream = videoRef.current.srcObject as MediaStream;
+                stream.getTracks().forEach(track => track.stop());
+                videoRef.current.srcObject = null;
+            }
+            return;
+        }
+
+        const getCameraPermission = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setHasCameraPermission(true);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                setHasCameraPermission(false);
+                toast({
+                    variant: 'destructive',
+                    title: 'Camera Access Denied',
+                    description: 'Please enable camera permissions in your browser settings.',
+                });
+            }
+        };
+
+        getCameraPermission();
+    }, [isCameraOpen, toast]);
+
     const handleButtonClick = (value: string) => {
         if (isLoading) return;
         
@@ -27,10 +76,12 @@ export default function AiCalculatorPage() {
             if (isNumeric && !isOperator) {
                 setProblem(value);
                 setResult(null);
+                setImageDataUri(null);
                 return;
             } else if (isOperator) {
                 setProblem(result.answer + value);
                 setResult(null);
+                setImageDataUri(null);
                 return;
             }
         }
@@ -43,6 +94,7 @@ export default function AiCalculatorPage() {
         setProblem('');
         setResult(null);
         setShowExplanation(false);
+        setImageDataUri(null);
     };
 
     const handleBackspace = () => {
@@ -50,9 +102,39 @@ export default function AiCalculatorPage() {
         setProblem(prev => prev.slice(0, -1));
     };
     
-    const solveWithAI = async (problemToSolve: string) => {
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setImageDataUri(event.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            if (e.target) e.target.value = '';
+        }
+    };
+
+    const handleCapture = useCallback(() => {
+        if (videoRef.current && canvasRef.current) {
+            const video = videoRef.current;
+            const canvas = canvasRef.current;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUri = canvas.toDataURL('image/jpeg');
+            setImageDataUri(dataUri);
+            setIsCameraOpen(false);
+        }
+    }, []);
+
+    const clearImage = () => {
+        setImageDataUri(null);
+    };
+
+    const solveWithAI = async (input: MathProblemInput) => {
          try {
-            const response = await solveMathProblem(problemToSolve);
+            const response = await solveMathProblem(input);
             setResult(response);
         } catch (error) {
             console.error("Calculation error:", error);
@@ -66,8 +148,8 @@ export default function AiCalculatorPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const trimmedProblem = problem.trim();
-        if (!trimmedProblem) {
-            toast({ title: "Error", description: "Please enter a problem.", variant: "destructive" });
+        if (!trimmedProblem && !imageDataUri) {
+            toast({ title: "Error", description: "Please enter a problem or upload an image.", variant: "destructive" });
             return;
         }
         
@@ -75,13 +157,10 @@ export default function AiCalculatorPage() {
         setResult(null);
         setShowExplanation(false);
 
-        // Check for simple arithmetic (only numbers, operators, parens, and dots)
-        const isSimpleMath = /^[0-9+\-*/().\s]+$/.test(trimmedProblem) && !/[a-zA-Z]/.test(trimmedProblem);
-
-        if (isSimpleMath) {
+        if (!imageDataUri && /^[0-9+\-*/().\s^]+$/.test(trimmedProblem) && !/[a-zA-Z]/.test(trimmedProblem)) {
             try {
-                // Safe evaluation for simple math
-                const answer = new Function('return ' + trimmedProblem)();
+                const problemToEval = trimmedProblem.replace(/\^/g, '**');
+                const answer = new Function('return ' + problemToEval)();
                 if (typeof answer !== 'number' || !isFinite(answer)) {
                     throw new Error("Invalid calculation");
                 }
@@ -92,12 +171,13 @@ export default function AiCalculatorPage() {
                 });
                 setIsLoading(false);
             } catch (error) {
-                // If safe eval fails (e.g. syntax error), fallback to AI
-                await solveWithAI(trimmedProblem);
+                await solveWithAI({ problem: trimmedProblem, imageDataUri: undefined });
             }
         } else {
-            // For complex math, use the AI flow
-            await solveWithAI(trimmedProblem);
+            await solveWithAI({
+                problem: trimmedProblem,
+                imageDataUri: imageDataUri || undefined
+            });
         }
     };
 
@@ -111,15 +191,23 @@ export default function AiCalculatorPage() {
                         AI Calculator
                     </CardTitle>
                     <p className="text-muted-foreground pt-2">
-                        Use buttons for quick entry or type complex problems like "derivative of x^2".
+                        Use buttons, type a problem, or upload an image of one.
                     </p>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
-                        <div className="p-2 rounded-lg bg-muted border h-28 flex flex-col justify-end">
+                        <div className="p-2 rounded-lg bg-muted border min-h-28 flex flex-col justify-end">
+                            {imageDataUri && (
+                                <div className="relative mb-2">
+                                    <Image src={imageDataUri} alt="Problem preview" width={400} height={100} className="rounded-md object-contain max-h-24 w-auto mx-auto" data-ai-hint="math equation" />
+                                    <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={clearImage}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            )}
                             <Input
                                 type="text"
-                                placeholder="0"
+                                placeholder="sqrt(16) + 4^2"
                                 value={problem}
                                 onChange={(e) => setProblem(e.target.value)}
                                 disabled={isLoading}
@@ -132,16 +220,27 @@ export default function AiCalculatorPage() {
                                 </div>
                             )}
                         </div>
+
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                                <ImageUp className="mr-2 h-4 w-4" /> Upload Image
+                            </Button>
+                            <Input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                            <Button type="button" variant="outline" className="flex-1" onClick={() => setIsCameraOpen(true)} disabled={isLoading}>
+                                <Camera className="mr-2 h-4 w-4" /> Use Camera
+                            </Button>
+                        </div>
+                        
                         <div className="grid grid-cols-5 gap-2">
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('d/dx(')}>d/dx</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('∫ ')}>∫</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('∫')}>∫</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('(')}>(</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(')')}>)</Button>
                             <Button type="button" variant="outline" onClick={handleBackspace} aria-label="Backspace"><Backspace /></Button>
 
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('sin(')}>sin</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('cos(')}>cos</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('tan(')}>tan</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('[')}>[</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick(']')}>]</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('i')}>i</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('^')}>xʸ</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('sqrt(')}>√</Button>
                            
@@ -155,18 +254,18 @@ export default function AiCalculatorPage() {
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('5')}>5</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('6')}>6</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' * ')} aria-label="Multiply"><Times /></Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('x')}>x</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')}>a/b</Button>
                             
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('1')}>1</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('2')}>2</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('3')}>3</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' - ')} aria-label="Subtract"><Minus /></Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('y')}>y</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('x')}>x</Button>
                             
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('0')} className="col-span-2">0</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('.')}>.</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' + ')} aria-label="Add"><Plus/></Button>
-                            <Button type="submit" disabled={isLoading || !problem.trim()}>
+                            <Button type="submit" disabled={isLoading || (!problem.trim() && !imageDataUri)}>
                                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Equal />}
                             </Button>
                         </div>
@@ -201,6 +300,28 @@ export default function AiCalculatorPage() {
                     </CardFooter>
                 )}
             </Card>
+            <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Use Camera</DialogTitle>
+                        <DialogDescription>Position the math problem in the frame and capture.</DialogDescription>
+                    </DialogHeader>
+                    {hasCameraPermission === false && (
+                        <Alert variant="destructive">
+                            <AlertTitle>Camera Access Required</AlertTitle>
+                            <AlertDescription>
+                                Please allow camera access in your browser settings to use this feature.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    <video ref={videoRef} className="w-full aspect-video rounded-md bg-muted" autoPlay muted />
+                    <canvas ref={canvasRef} className="hidden" />
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                        <Button onClick={handleCapture} disabled={hasCameraPermission !== true}>Capture Image</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </main>
     );
 }

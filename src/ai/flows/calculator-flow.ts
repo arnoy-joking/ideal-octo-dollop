@@ -10,7 +10,10 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-const MathProblemInputSchema = z.string().describe('A mathematical problem to solve, e.g., "derivative of x^2" or "integrate 2x from 0 to 5".');
+const MathProblemInputSchema = z.object({
+  problem: z.string().describe('A mathematical problem to solve, or context for the problem in the image.'),
+  imageDataUri: z.string().optional().describe("An image of a math problem, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."),
+});
 export type MathProblemInput = z.infer<typeof MathProblemInputSchema>;
 
 const MathProblemOutputSchema = z.object({
@@ -24,14 +27,18 @@ const calculatorPrompt = ai.definePrompt({
     name: 'calculatorPrompt',
     input: { schema: MathProblemInputSchema },
     output: { schema: MathProblemOutputSchema },
-    prompt: `You are an expert mathematician and a helpful calculator for higher mathematics, including calculus (integration, differentiation), trigonometry, and complex numbers.
+    prompt: `You are an expert mathematician and a helpful calculator for higher mathematics, including calculus (integration, differentiation), trigonometry, complex numbers, matrices, vectors, and statistics.
     
-    The user will provide a mathematical problem. You should handle both natural language ("derivative of x^2") and common mathematical notation.
+    The user will provide a mathematical problem, potentially including an image.
+
+    If an image is provided, it contains the primary problem to solve. The text input can provide additional context or clarification.
 
     Examples of notation to support:
     - Differentiation: d/dx(x^2)
     - Indefinite Integral: ∫ x^2 dx
     - Definite Integral: integrate x^2 from 0 to 5
+    - Matrices: [[1, 2], [3, 4]]
+    - Complex numbers: (3 + 4i) * (2 - i)
     
     Your task is to:
     1.  Solve the problem accurately.
@@ -39,8 +46,13 @@ const calculatorPrompt = ai.definePrompt({
     3.  Provide the final answer formatted as a display-style LaTeX string in the 'latexAnswer' field. Do not wrap it in $$ or \\[ \\].
     4.  Provide a detailed, step-by-step explanation of the solution process formatted as a LaTeX string in the 'latexExplanation' field. Use LaTeX environments like align* for equations and \\\\ for newlines.
 
-    Problem:
-    {{{input}}}`,
+    Problem Description:
+    {{{problem}}}
+
+    {{#if imageDataUri}}
+    Problem Image:
+    {{media url=imageDataUri}}
+    {{/if}}`,
 });
 
 const solveMathProblemFlow = ai.defineFlow(
@@ -55,6 +67,6 @@ const solveMathProblemFlow = ai.defineFlow(
     }
 );
 
-export async function solveMathProblem(problem: MathProblemInput): Promise<MathProblemOutput> {
-  return await solveMathProblemFlow(problem);
+export async function solveMathProblem(input: MathProblemInput): Promise<MathProblemOutput> {
+  return await solveMathProblemFlow(input);
 }
