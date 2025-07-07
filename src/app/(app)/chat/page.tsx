@@ -17,39 +17,87 @@ export default function AiCalculatorPage() {
 
     const handleButtonClick = (value: string) => {
         if (isLoading) return;
+        
+        const isNumeric = /[0-9.]/.test(value);
+        const isOperator = [' + ', ' - ', ' * ', ' / '].includes(value);
+
+        if (result && !showExplanation) {
+            if (isNumeric && !isOperator) {
+                setProblem(value);
+                setResult(null);
+                return;
+            } else if (isOperator) {
+                setProblem(result.answer + value);
+                setResult(null);
+                return;
+            }
+        }
+        
         setProblem(prev => prev + value);
     };
 
     const handleClear = () => {
         if (isLoading) return;
         setProblem('');
+        setResult(null);
+        setShowExplanation(false);
     };
 
     const handleBackspace = () => {
         if (isLoading) return;
         setProblem(prev => prev.slice(0, -1));
     };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!problem.trim()) {
-            toast({ title: "Error", description: "Please enter a problem.", variant: "destructive" });
-            return;
-        }
-        setIsLoading(true);
-        setResult(null);
-        setShowExplanation(false);
-
-        try {
-            const response = await solveMathProblem(problem);
+    
+    const solveWithAI = async (problemToSolve: string) => {
+         try {
+            const response = await solveMathProblem(problemToSolve);
             setResult(response);
         } catch (error) {
             console.error("Calculation error:", error);
             toast({ title: "Error", description: "Could not solve the problem. Please try again.", variant: "destructive" });
+            setResult(null);
         } finally {
             setIsLoading(false);
         }
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const trimmedProblem = problem.trim();
+        if (!trimmedProblem) {
+            toast({ title: "Error", description: "Please enter a problem.", variant: "destructive" });
+            return;
+        }
+        
+        setIsLoading(true);
+        setResult(null);
+        setShowExplanation(false);
+
+        // Check for simple arithmetic (only numbers, operators, parens, and dots)
+        const isSimpleMath = /^[0-9+\-*/().\s]+$/.test(trimmedProblem) && !/[a-zA-Z]/.test(trimmedProblem);
+
+        if (isSimpleMath) {
+            try {
+                // Safe evaluation for simple math
+                const answer = new Function('return ' + trimmedProblem)();
+                if (typeof answer !== 'number' || !isFinite(answer)) {
+                    throw new Error("Invalid calculation");
+                }
+                setResult({
+                    answer: String(answer),
+                    explanation: "This was calculated using basic arithmetic."
+                });
+                setIsLoading(false);
+            } catch (error) {
+                // If safe eval fails (e.g. syntax error), fallback to AI
+                await solveWithAI(trimmedProblem);
+            }
+        } else {
+            // For complex math, use the AI flow
+            await solveWithAI(trimmedProblem);
+        }
     };
+
 
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
@@ -60,20 +108,27 @@ export default function AiCalculatorPage() {
                         AI Calculator
                     </CardTitle>
                     <p className="text-muted-foreground pt-2">
-                        Use the buttons to build your equation or type directly into the display.
+                        Use buttons for quick entry or type complex problems like "derivative of x^2".
                     </p>
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
-                        <Input
-                            type="text"
-                            placeholder="e.g., derivative of x^2"
-                            value={problem}
-                            onChange={(e) => setProblem(e.target.value)}
-                            disabled={isLoading}
-                            autoFocus
-                            className="text-2xl h-16 text-right font-mono"
-                        />
+                        <div className="p-2 rounded-lg bg-muted border h-24 flex flex-col justify-end">
+                            <Input
+                                type="text"
+                                placeholder="0"
+                                value={problem}
+                                onChange={(e) => setProblem(e.target.value)}
+                                disabled={isLoading}
+                                autoFocus
+                                className="text-2xl h-auto text-right font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                            />
+                             {result && (
+                                <div className="text-4xl text-right font-mono text-foreground truncate">
+                                    {result.answer}
+                                </div>
+                            )}
+                        </div>
                         <div className="grid grid-cols-5 gap-2">
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('derivative of ')}>d/dx</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('integrate ')}>∫</Button>
@@ -105,10 +160,10 @@ export default function AiCalculatorPage() {
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' - ')} aria-label="Subtract"><Minus /></Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('y')}>y</Button>
                             
-                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('0')}>0</Button>
+                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('0')} className="col-span-2">0</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('.')}>.</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(' + ')} aria-label="Add"><Plus/></Button>
-                            <Button type="submit" className="col-span-2" disabled={isLoading || !problem.trim()}>
+                            <Button type="submit" disabled={isLoading || !problem.trim()}>
                                 {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Equal />}
                             </Button>
                         </div>
@@ -117,18 +172,11 @@ export default function AiCalculatorPage() {
                 {isLoading && (
                     <div className="p-6 pt-0 text-center">
                         <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-                        <p className="text-muted-foreground mt-2">Calculating...</p>
+                        <p className="text-muted-foreground mt-2">AI is thinking...</p>
                     </div>
                 )}
                 {result && (
                     <CardFooter className="flex flex-col items-start gap-4">
-                        <Alert className="w-full">
-                            <AlertTitle className="font-bold text-lg">Answer</AlertTitle>
-                            <AlertDescription className="text-base font-mono py-2">
-                                {result.answer}
-                            </AlertDescription>
-                        </Alert>
-
                         {!showExplanation && (
                             <Button variant="outline" onClick={() => setShowExplanation(true)}>
                                 <Lightbulb className="mr-2 h-4 w-4" />
