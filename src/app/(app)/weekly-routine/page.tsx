@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -240,13 +241,16 @@ export default function WeeklyRoutinePage() {
                                                 <div className="flex-1">
                                                     <Select
                                                         value={routine[day][slotIndex].courseId}
-                                                        onValueChange={value => handleSlotChange(day, slotIndex, 'courseId', value)}
+                                                        onValueChange={value => {
+                                                            const valueToSet = value === 'clear-selection' ? '' : value;
+                                                            handleSlotChange(day, slotIndex, 'courseId', valueToSet);
+                                                        }}
                                                     >
                                                         <SelectTrigger aria-label={`${day} course for slot ${slotIndex + 1}`}>
                                                             <SelectValue placeholder="Select course..." />
                                                         </SelectTrigger>
                                                         <SelectContent>
-                                                            <SelectItem value="">
+                                                            <SelectItem value="clear-selection">
                                                                 <em>None</em>
                                                             </SelectItem>
                                                             {courses.map(course => (
