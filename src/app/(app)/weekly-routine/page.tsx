@@ -6,7 +6,7 @@ import type { Course, WeeklyRoutine } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getRoutineAction, saveRoutineAction, resetRoutineAction } from '@/app/actions/routine-actions';
 import { useUser } from '@/context/user-context';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -52,7 +52,18 @@ export default function WeeklyRoutinePage() {
             setCourses(fetchedCourses);
 
             if (savedRoutine) {
-                setRoutine(savedRoutine);
+                // Ensure all days and slots are present, preventing errors if NUM_SLOTS changes
+                const completeRoutine = generateInitialRoutine();
+                for (const day of daysOfWeek) {
+                    if (savedRoutine[day]) {
+                         for(let i = 0; i < NUM_SLOTS; i++) {
+                            if (savedRoutine[day][i]) {
+                                completeRoutine[day][i] = savedRoutine[day][i];
+                            }
+                        }
+                    }
+                }
+                setRoutine(completeRoutine);
             } else {
                 setRoutine(generateInitialRoutine());
             }
@@ -133,6 +144,11 @@ export default function WeeklyRoutinePage() {
             const dataUrl = await toJpeg(routineRef.current, {
                 quality: 0.95,
                 backgroundColor: '#ffffff',
+                // Make the image wider to capture the full table on desktop
+                style: {
+                    width: '1400px',
+                    padding: '1rem',
+                }
             });
 
             const link = document.createElement('a');
@@ -154,12 +170,15 @@ export default function WeeklyRoutinePage() {
         return (
              <main className="flex-1 p-4 sm:p-6 lg:p-8">
                 <div className="max-w-7xl mx-auto">
-                    <Skeleton className="h-10 w-1/2 mb-8" />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {daysOfWeek.slice(0, 4).map(day => (
-                            <Skeleton key={day} className="h-80 w-full" />
-                        ))}
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+                         <Skeleton className="h-16 w-64" />
+                         <div className="flex gap-2">
+                             <Skeleton className="h-10 w-32" />
+                             <Skeleton className="h-10 w-32" />
+                             <Skeleton className="h-10 w-32" />
+                         </div>
                     </div>
+                    <Skeleton className="h-[400px] w-full rounded-lg" />
                 </div>
             </main>
         )
@@ -194,48 +213,68 @@ export default function WeeklyRoutinePage() {
                     </div>
                 </div>
 
-                <div ref={routineRef} className="bg-background p-4 rounded-lg">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {daysOfWeek.map(day => (
-                            <Card key={day}>
-                                <CardHeader>
-                                    <CardTitle>{day}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {routine[day] && routine[day].map((slot, index) => (
-                                        <div key={slot.id} className="flex items-center gap-2">
+                <div ref={routineRef} className="bg-background rounded-lg">
+                    <div className="overflow-x-auto border rounded-lg">
+                        <Table className="min-w-[1200px]">
+                            <TableHeader>
+                                <TableRow>
+                                {daysOfWeek.map(day => (
+                                    <TableHead key={day} className="text-center font-semibold text-lg h-14">{day}</TableHead>
+                                ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {Array.from({ length: NUM_SLOTS }).map((_, slotIndex) => (
+                                <TableRow key={slotIndex} className="hover:bg-muted/50">
+                                    {daysOfWeek.map(day => (
+                                    <TableCell key={`${day}-${slotIndex}`} className="p-2 align-top border-l first:border-l-0">
+                                        {routine[day] && routine[day][slotIndex] ? (
+                                        <div className="space-y-2">
                                             <Input
                                                 type="time"
-                                                value={slot.time}
-                                                onChange={e => handleSlotChange(day, index, 'time', e.target.value)}
-                                                className="w-28"
-                                                aria-label={`${day} time for slot ${index + 1}`}
+                                                value={routine[day][slotIndex].time}
+                                                onChange={e => handleSlotChange(day, slotIndex, 'time', e.target.value)}
+                                                aria-label={`${day} time for slot ${slotIndex + 1}`}
                                             />
-                                            <div className="flex-1">
-                                                <Select
-                                                    value={slot.courseId}
-                                                    onValueChange={value => handleSlotChange(day, index, 'courseId', value)}
-                                                >
-                                                    <SelectTrigger aria-label={`${day} course for slot ${index + 1}`}>
-                                                        <SelectValue placeholder="Select a course..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {courses.map(course => (
-                                                            <SelectItem key={course.id} value={course.id}>
-                                                                {course.title}
+                                            <div className="flex items-center gap-1">
+                                                <div className="flex-1">
+                                                    <Select
+                                                        value={routine[day][slotIndex].courseId}
+                                                        onValueChange={value => handleSlotChange(day, slotIndex, 'courseId', value)}
+                                                    >
+                                                        <SelectTrigger aria-label={`${day} course for slot ${slotIndex + 1}`}>
+                                                            <SelectValue placeholder="Select course..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="">
+                                                                <em>None</em>
                                                             </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                            {courses.map(course => (
+                                                                <SelectItem key={course.id} value={course.id}>
+                                                                    {course.title}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 flex-shrink-0" 
+                                                    onClick={() => handleClearSlot(day, slotIndex)}
+                                                    aria-label={`Clear slot ${slotIndex + 1} for ${day}`}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
                                             </div>
-                                            <Button variant="ghost" size="icon" className="w-8 h-8 flex-shrink-0" onClick={() => handleClearSlot(day, index)}>
-                                                <X className="h-4 w-4" />
-                                            </Button>
                                         </div>
+                                        ) : null}
+                                    </TableCell>
                                     ))}
-                                </CardContent>
-                            </Card>
-                        ))}
+                                </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
             </div>
