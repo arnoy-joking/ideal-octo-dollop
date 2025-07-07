@@ -19,7 +19,7 @@ export type MathProblemInput = z.infer<typeof MathProblemInputSchema>;
 const MathProblemOutputSchema = z.object({
   answer: z.string().describe('The final, plain-text answer to the mathematical problem. For example: "2*x" or "12.5". This is used for chaining calculations.'),
   latexAnswer: z.string().describe('The final answer formatted as a display-style LaTeX string. Do not wrap it in $$ or \\[ \\]. For example: "2x" or "12.5".'),
-  latexExplanation: z.string().describe("A step-by-step explanation of how the answer was derived, formatted as a single LaTeX string. Use standard LaTeX for text. Use 'align*' environment for multi-step equations. Use '\\\\' for newlines. For example: 'First, we simplify the expression. \\\\ \\begin{align*} x^2 + 2x + 1 &= (x+1)^2 \\\\ &= ... \\end{align*} Therefore, the answer is...'"),
+  latexExplanation: z.string().describe("A step-by-step mathematical derivation of the solution, formatted as a single LaTeX string. It should only contain the mathematical steps, primarily using an 'align*' environment for multi-step equations. Do not include any descriptive English text. Each step should be on a new line, separated by '\\\\'. For example: '\\begin{align*} 2x + 5 &= 15 \\\\ 2x &= 10 \\\\ x &= 5 \\end{align*}'"),
 });
 export type MathProblemOutput = z.infer<typeof MathProblemOutputSchema>;
 
@@ -44,7 +44,7 @@ const calculatorPrompt = ai.definePrompt({
     1.  Solve the problem accurately.
     2.  Provide the final answer as a plain text string in the 'answer' field. This is for display and chaining calculations.
     3.  Provide the final answer formatted as a display-style LaTeX string in the 'latexAnswer' field. Do not wrap it in $$ or \\[ \\].
-    4.  Provide a detailed, step-by-step explanation of the solution process formatted as a single LaTeX string in the 'latexExplanation' field. Use standard LaTeX for text. Use 'align*' environment for multi-step equations. Use '\\\\' for newlines between steps or paragraphs.
+    4.  Provide a step-by-step mathematical derivation of the solution in the 'latexExplanation' field. This should ONLY contain the mathematical steps, like a textbook example. Use the 'align*' environment for multi-step equations. Do NOT include any descriptive text, commentary, or prose. Show the work using equals signs.
 
     Problem Description:
     {{{problem}}}
