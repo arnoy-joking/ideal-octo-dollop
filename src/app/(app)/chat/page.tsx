@@ -7,6 +7,7 @@ import { Calculator, Loader2, Lightbulb, Delete as Backspace, Divide, Minus, Plu
 import { solveMathProblem, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BlockMath } from 'react-katex';
 
 export default function AiCalculatorPage() {
     const [problem, setProblem] = useState('');
@@ -85,7 +86,8 @@ export default function AiCalculatorPage() {
                 }
                 setResult({
                     answer: String(answer),
-                    explanation: "This was calculated using basic arithmetic."
+                    latexAnswer: String(answer),
+                    latexExplanation: "This was calculated using basic arithmetic."
                 });
                 setIsLoading(false);
             } catch (error) {
@@ -113,7 +115,7 @@ export default function AiCalculatorPage() {
                 </CardHeader>
                 <form onSubmit={handleSubmit}>
                     <CardContent className="space-y-4">
-                        <div className="p-2 rounded-lg bg-muted border h-24 flex flex-col justify-end">
+                        <div className="p-2 rounded-lg bg-muted border h-28 flex flex-col justify-end">
                             <Input
                                 type="text"
                                 placeholder="0"
@@ -124,8 +126,8 @@ export default function AiCalculatorPage() {
                                 className="text-2xl h-auto text-right font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
                             />
                              {result && (
-                                <div className="text-4xl text-right font-mono text-foreground truncate">
-                                    {result.answer}
+                                <div className="text-4xl text-right font-mono text-foreground truncate h-12 flex justify-end items-center">
+                                    <BlockMath math={result.latexAnswer} />
                                 </div>
                             )}
                         </div>
@@ -190,8 +192,8 @@ export default function AiCalculatorPage() {
                                     <Lightbulb />
                                     Explanation
                                 </AlertTitle>
-                                <AlertDescription className="pt-2 whitespace-pre-wrap text-sm leading-relaxed">
-                                    {result.explanation}
+                                <AlertDescription className="pt-2 text-sm leading-relaxed">
+                                    <BlockMath math={result.latexExplanation} />
                                 </AlertDescription>
                             </Alert>
                         )}
