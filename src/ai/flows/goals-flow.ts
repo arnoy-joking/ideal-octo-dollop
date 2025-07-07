@@ -8,7 +8,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit/zod';
+import {z} from 'zod';
 
 export const SuggestGoalsInputSchema = z.string().describe("The user's current list of learning goals, separated by newlines.");
 export type SuggestGoalsInput = z.infer<typeof SuggestGoalsInputSchema>;

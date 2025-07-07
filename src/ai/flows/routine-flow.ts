@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit/zod';
+import { z } from 'zod';
 
 const GenerateRoutineInputSchema = z.object({
   courses: z.array(z.object({ id: z.string(), title: z.string() })).describe('A list of available courses with their IDs and titles.'),
