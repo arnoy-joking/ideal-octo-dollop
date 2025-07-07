@@ -3,7 +3,7 @@ export interface Lesson {
   title: string;
   duration: string;
   videoId: string;
-  pdfUrl: string;
+  pdfUrl?: string;
 }
 
 export interface Course {

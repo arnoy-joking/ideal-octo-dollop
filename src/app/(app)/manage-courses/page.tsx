@@ -62,7 +62,7 @@ const lessonSchema = z.object({
     title: z.string().min(1, 'Title is required'),
     duration: z.string().regex(/^\d{2,}:\d{2}:\d{2}$/, 'Duration must be in HH:MM:SS format'),
     videoId: z.string().min(1, 'Video ID is required'),
-    pdfUrl: z.string().url('Must be a valid URL'),
+    pdfUrl: z.string().url('Must be a valid URL if provided').or(z.literal('')).optional(),
 });
 
 const courseSchema = z.object({
@@ -85,7 +85,7 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
         resolver: zodResolver(courseSchema),
         defaultValues: course ? {
             ...course,
-            lessons: course.lessons.map(l => ({...l}))
+            lessons: course.lessons.map(l => ({...l, pdfUrl: l.pdfUrl || ''}))
         } : {
             title: '',
             slug: '',
@@ -103,17 +103,17 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
 
     const handleParseBulkLessons = () => {
         const lines = bulkText.split('\n').filter(line => line.trim() !== '');
-        const newLessons: Omit<Lesson, 'id'>[] = [];
+        const newLessons: (Omit<Lesson, 'id'|'pdfUrl'> & {pdfUrl?: string})[] = [];
         let errors = 0;
 
         lines.forEach((line, index) => {
             const parts = line.split('|').map(p => p.trim());
-            if (parts.length === 4) {
+            if (parts.length === 3 || parts.length === 4) {
                 newLessons.push({
                     title: parts[1],
                     duration: parts[2],
                     videoId: parts[0],
-                    pdfUrl: parts[3]
+                    pdfUrl: parts[3] || ''
                 });
             } else {
                 errors++;
@@ -121,7 +121,8 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
         });
 
         if (newLessons.length > 0) {
-            append(newLessons.map(l => ({...l, id: crypto.randomUUID()})));
+            const lessonsToAppend = newLessons.map(l => ({...l, id: crypto.randomUUID(), title: l.title, duration: l.duration, videoId: l.videoId, pdfUrl: l.pdfUrl || ''}));
+            append(lessonsToAppend);
             toast({
                 title: 'Lessons Appended',
                 description: `Successfully appended ${newLessons.length} lessons. ${errors > 0 ? `${errors} lines had formatting issues and were ignored.` : ''}`
@@ -145,8 +146,8 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
         };
 
         const result = course 
-            ? await updateCourseAction(course.id, coursePayload)
-            : await addCourseAction(coursePayload);
+            ? await updateCourseAction(course.id, coursePayload as Omit<Course, 'id'>)
+            : await addCourseAction(coursePayload as Omit<Course, 'id'>);
 
         setIsSubmitting(false);
 
@@ -182,7 +183,7 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
                                 <FormField control={form.control} name={`lessons.${index}.title`} render={({ field }) => ( <FormItem><FormLabel>Lesson Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`lessons.${index}.duration`} render={({ field }) => ( <FormItem><FormLabel>Duration (HH:MM:SS)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <FormField control={form.control} name={`lessons.${index}.videoId`} render={({ field }) => ( <FormItem><FormLabel>YouTube Video ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
-                                <FormField control={form.control} name={`lessons.${index}.pdfUrl`} render={({ field }) => ( <FormItem><FormLabel>PDF URL</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
+                                <FormField control={form.control} name={`lessons.${index}.pdfUrl`} render={({ field }) => ( <FormItem><FormLabel>PDF URL (Optional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )} />
                                 <Button type="button" variant="destructive" size="icon" className="absolute top-2 right-2" onClick={() => remove(index)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -196,14 +197,14 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
                         <div className="space-y-2">
                             <Label htmlFor="bulk-lessons">Bulk Add Lessons</Label>
                             <FormDescription>
-                                Add lessons using the format: `Video ID | Title | Duration (HH:MM:SS) | PDF URL`. Each lesson on a new line.
+                                Add lessons using the format: `Video ID | Title | Duration (HH:MM:SS) | PDF URL`. The PDF URL is optional. Each lesson on a new line.
                             </FormDescription>
                             <Textarea
                                 id="bulk-lessons"
                                 value={bulkText}
                                 onChange={(e) => setBulkText(e.target.value)}
                                 rows={10}
-                                placeholder="SqcY0GlETPk | What is React? | 00:10:32 | https://example.com/react-1.pdf&#10;9S6M2i_S8s | Setting Up Your Environment | 00:15:10 | https://example.com/react-2.pdf"
+                                placeholder="SqcY0GlETPk | What is React? | 00:10:32 | https://example.com/react-1.pdf&#10;9S6M2i_S8s | Setting Up Your Environment | 00:15:10"
                                 className="font-code text-xs"
                             />
                         </div>
