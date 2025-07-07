@@ -1,17 +1,19 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toJpeg } from 'html-to-image';
 import type { Course, WeeklyRoutine } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getRoutineAction, saveRoutineAction, resetRoutineAction } from '@/app/actions/routine-actions';
+import { getGoalsAction } from '@/app/actions/goals-actions';
+import { generateWeeklyRoutine } from '@/ai/flows/routine-flow';
 import { useUser } from '@/context/user-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Save, X, RotateCcw, Download, Loader2 } from 'lucide-react';
+import { CalendarDays, Save, X, RotateCcw, Download, Loader2, Sparkles, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -36,38 +38,45 @@ export default function WeeklyRoutinePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const { toast } = useToast();
     const routineRef = useRef<HTMLDivElement>(null);
     const { currentUser, isLoading: isUserLoading } = useUser();
+
+    const loadRoutine = useCallback(async () => {
+        if (!currentUser) return;
+        setIsRefreshing(true);
+        const savedRoutine = await getRoutineAction(currentUser.id);
+        if (savedRoutine) {
+            const completeRoutine = generateInitialRoutine();
+            for (const day of daysOfWeek) {
+                if (savedRoutine[day]) {
+                     for(let i = 0; i < NUM_SLOTS; i++) {
+                        if (savedRoutine[day][i]) {
+                            completeRoutine[day][i] = savedRoutine[day][i];
+                        }
+                    }
+                }
+            }
+            setRoutine(completeRoutine);
+        } else {
+            setRoutine(generateInitialRoutine());
+        }
+        setIsRefreshing(false);
+    }, [currentUser]);
 
     useEffect(() => {
         async function loadInitialData() {
             if (!currentUser) return;
             setIsLoading(true);
 
-            const [fetchedCourses, savedRoutine] = await Promise.all([
+            const [fetchedCourses] = await Promise.all([
                 getCoursesAction(),
-                getRoutineAction(currentUser.id)
             ]);
             
             setCourses(fetchedCourses);
-
-            if (savedRoutine) {
-                // Ensure all days and slots are present, preventing errors if NUM_SLOTS changes
-                const completeRoutine = generateInitialRoutine();
-                for (const day of daysOfWeek) {
-                    if (savedRoutine[day]) {
-                         for(let i = 0; i < NUM_SLOTS; i++) {
-                            if (savedRoutine[day][i]) {
-                                completeRoutine[day][i] = savedRoutine[day][i];
-                            }
-                        }
-                    }
-                }
-                setRoutine(completeRoutine);
-            } else {
-                setRoutine(generateInitialRoutine());
-            }
+            await loadRoutine();
 
             setIsLoading(false);
         }
@@ -75,7 +84,7 @@ export default function WeeklyRoutinePage() {
         if (!isUserLoading) {
             loadInitialData();
         }
-    }, [currentUser, isUserLoading]);
+    }, [currentUser, isUserLoading, loadRoutine]);
 
     const handleSlotChange = (day: string, slotIndex: number, field: 'time' | 'courseId', value: string) => {
         setRoutine(prevRoutine => {
@@ -126,7 +135,7 @@ export default function WeeklyRoutinePage() {
             await resetRoutineAction(currentUser.id);
             toast({
                 title: 'Routine Reset!',
-                description: 'Your weekly study routine has been cleared from your profile.',
+                description: 'Your weekly study routine has been cleared.',
             });
         } catch (error) {
              toast({
@@ -145,11 +154,7 @@ export default function WeeklyRoutinePage() {
             const dataUrl = await toJpeg(routineRef.current, {
                 quality: 0.95,
                 backgroundColor: '#ffffff',
-                // Make the image wider to capture the full table on desktop
-                style: {
-                    width: '1400px',
-                    padding: '1rem',
-                }
+                style: { width: '1400px', padding: '1rem' }
             });
 
             const link = document.createElement('a');
@@ -164,6 +169,26 @@ export default function WeeklyRoutinePage() {
             });
         } finally {
             setIsDownloading(false);
+        }
+    };
+
+    const handleGenerateWithAI = async () => {
+        if (!currentUser || courses.length === 0) {
+            toast({ title: 'Cannot Generate', description: 'User and courses must be loaded first.', variant: 'destructive' });
+            return;
+        }
+        setIsGenerating(true);
+        try {
+            const goals = await getGoalsAction(currentUser.id);
+            const courseData = courses.map(({ id, title }) => ({ id, title }));
+            const generatedRoutine = await generateWeeklyRoutine({ courses: courseData, goals });
+            setRoutine(generatedRoutine);
+            toast({ title: 'Routine Generated!', description: 'The AI created a schedule for you. Review and save it.' });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Could not generate a routine. Please try again.', variant: 'destructive' });
+            console.error(error);
+        } finally {
+            setIsGenerating(false);
         }
     };
 
@@ -199,15 +224,23 @@ export default function WeeklyRoutinePage() {
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Button onClick={handleDownloadImage} variant="outline" disabled={isDownloading}>
+                        <Button onClick={handleGenerateWithAI} variant="outline" disabled={isGenerating || isLoading}>
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Generate with AI
+                        </Button>
+                        <Button onClick={() => loadRoutine()} variant="outline" disabled={isRefreshing || isLoading}>
+                            {isRefreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                            Refresh
+                        </Button>
+                        <Button onClick={handleDownloadImage} variant="outline" disabled={isDownloading || isLoading}>
                             {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                             Download JPG
                         </Button>
-                        <Button onClick={handleResetRoutine} variant="destructive" >
+                        <Button onClick={handleResetRoutine} variant="destructive" disabled={isLoading}>
                             <RotateCcw className="mr-2 h-4 w-4" />
-                            Reset Routine
+                            Reset
                         </Button>
-                        <Button onClick={handleSaveRoutine} disabled={isSaving}>
+                        <Button onClick={handleSaveRoutine} disabled={isSaving || isLoading}>
                              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Save Routine
                         </Button>
