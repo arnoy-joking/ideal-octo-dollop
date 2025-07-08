@@ -202,7 +202,7 @@ export default function AiCalculatorPage() {
 
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col items-center">
-            <Card className="w-full max-w-lg">
+            <Card className="w-full max-w-2xl">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Calculator className="text-primary" />
@@ -231,7 +231,7 @@ export default function AiCalculatorPage() {
                             
                             <div className="text-right">
                                 {result ? (
-                                     <div className="text-5xl font-mono text-foreground font-semibold text-right break-all min-h-[56px] flex items-center justify-end">
+                                     <div className="text-5xl font-mono text-foreground font-semibold text-right break-all min-h-[56px] overflow-x-auto flex items-center justify-end py-1">
                                         <BlockMath math={result.latexAnswer} />
                                     </div>
                                 ) : (
@@ -281,7 +281,7 @@ export default function AiCalculatorPage() {
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('7')}>7</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('8')}>8</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('9')}>9</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')} aria-label="Divide">/</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')} aria-label="Fraction/Divide">a/b</Button>
                             <Button type="button" variant="outline" onClick={handleBackspace} aria-label="Backspace"><Delete /></Button>
 
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('4')}>4</Button>
