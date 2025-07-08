@@ -94,15 +94,20 @@ export default function WeeklyRoutinePage() {
             return newRoutine;
         });
     };
-
-    const handleTimeChange = (day: string, slotIndex: number, time: string) => {
+    
+    const handleRowTimeChange = (slotIndex: number, newTime: string) => {
         setRoutine(prevRoutine => {
             const newRoutine = { ...prevRoutine };
-            newRoutine[day] = [...newRoutine[day]];
-            newRoutine[day][slotIndex] = { ...newRoutine[day][slotIndex], time: time };
+            daysOfWeek.forEach(day => {
+                if (newRoutine[day]?.[slotIndex]) {
+                    newRoutine[day] = [...newRoutine[day]];
+                    newRoutine[day][slotIndex] = { ...newRoutine[day][slotIndex], time: newTime };
+                }
+            });
             return newRoutine;
         });
     };
+
 
     const handleSaveRoutine = async () => {
         if (!currentUser) {
@@ -252,7 +257,7 @@ export default function WeeklyRoutinePage() {
                         <Table className="min-w-[1400px]">
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[120px] text-center font-semibold text-lg h-14">Slot</TableHead>
+                                    <TableHead className="w-[150px] text-center font-semibold text-lg h-14">Time</TableHead>
                                     {daysOfWeek.map(day => (
                                         <TableHead key={day} className="text-center font-semibold text-lg h-14">{day}</TableHead>
                                     ))}
@@ -262,42 +267,39 @@ export default function WeeklyRoutinePage() {
                                 {Array.from({ length: NUM_SLOTS }).map((_, slotIndex) => (
                                 <TableRow key={slotIndex} className="hover:bg-muted/50">
                                     <TableCell className="p-2 font-medium align-middle text-center border-r">
-                                        Slot {slotIndex + 1}
+                                        <Input
+                                            type="text"
+                                            placeholder="e.g. 09:00"
+                                            value={(routine['Sunday']?.[slotIndex]?.time) || ''}
+                                            onChange={(e) => handleRowTimeChange(slotIndex, e.target.value)}
+                                            aria-label={`Time for slot ${slotIndex + 1}`}
+                                            className="text-center w-full"
+                                        />
                                     </TableCell>
                                     {daysOfWeek.map(day => (
                                     <TableCell key={`${day}-${slotIndex}`} className="p-2 align-top">
                                         {routine[day] && routine[day][slotIndex] ? (
-                                            <div className="space-y-2">
-                                                <Input
-                                                    type="text"
-                                                    placeholder="e.g. 09:00"
-                                                    value={routine[day][slotIndex].time}
-                                                    onChange={(e) => handleTimeChange(day, slotIndex, e.target.value)}
-                                                    aria-label={`Time for ${day} slot ${slotIndex + 1}`}
-                                                    className="text-center"
-                                                />
-                                                <Select
-                                                    value={routine[day][slotIndex].courseId}
-                                                    onValueChange={value => {
-                                                        const valueToSet = value === 'clear-selection' ? '' : value;
-                                                        handleSlotChange(day, slotIndex, valueToSet);
-                                                    }}
-                                                >
-                                                    <SelectTrigger aria-label={`${day} course for slot ${slotIndex + 1}`}>
-                                                        <SelectValue placeholder="Select course..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="clear-selection">
-                                                            <em>None</em>
+                                            <Select
+                                                value={routine[day][slotIndex].courseId}
+                                                onValueChange={value => {
+                                                    const valueToSet = value === 'clear-selection' ? '' : value;
+                                                    handleSlotChange(day, slotIndex, valueToSet);
+                                                }}
+                                            >
+                                                <SelectTrigger aria-label={`${day} course for slot ${slotIndex + 1}`} className="w-full">
+                                                    <SelectValue placeholder="Select course..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="clear-selection">
+                                                        <em>None</em>
+                                                    </SelectItem>
+                                                    {courses.map(course => (
+                                                        <SelectItem key={course.id} value={course.id}>
+                                                            {course.title}
                                                         </SelectItem>
-                                                        {courses.map(course => (
-                                                            <SelectItem key={course.id} value={course.id}>
-                                                                {course.title}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         ) : null}
                                     </TableCell>
                                     ))}
