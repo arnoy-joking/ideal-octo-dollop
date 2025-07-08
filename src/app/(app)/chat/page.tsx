@@ -32,10 +32,47 @@ export default function AiCalculatorPage() {
     const [imageDataUri, setImageDataUri] = useState<string | null>(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+    const [resultScale, setResultScale] = useState(1);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const resultTextRef = useRef<HTMLDivElement>(null);
+
+     useEffect(() => {
+        const calculateScale = () => {
+            if (result && resultTextRef.current) {
+                const contentNode = resultTextRef.current;
+                const containerNode = contentNode.parentElement;
+
+                if (containerNode) {
+                    const containerWidth = containerNode.clientWidth;
+                    const contentWidth = contentNode.scrollWidth;
+                    
+                    if (contentWidth > containerWidth) {
+                        setResultScale(containerWidth / contentWidth);
+                    } else {
+                        setResultScale(1);
+                    }
+                }
+            } else {
+                setResultScale(1);
+            }
+        };
+
+        // KaTeX rendering can be asynchronous. A timeout helps get the final rendered size.
+        const timer = setTimeout(calculateScale, 50);
+
+        // Also add a resize listener to adapt to screen changes
+        window.addEventListener('resize', calculateScale);
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', calculateScale);
+        };
+
+    }, [result]);
+
 
     useEffect(() => {
         if (!isCameraOpen) {
@@ -229,9 +266,17 @@ export default function AiCalculatorPage() {
                                 </div>
                             </div>
                             
-                            <div className="text-right">
+                            <div className="text-right text-5xl font-mono text-foreground font-semibold min-h-[56px] flex items-center justify-end overflow-hidden py-1">
                                 {result ? (
-                                     <div className="text-5xl font-mono text-foreground font-semibold text-right break-all min-h-[56px] overflow-x-auto flex items-center justify-end py-1">
+                                    <div
+                                        ref={resultTextRef}
+                                        style={{ 
+                                            transform: `scale(${resultScale})`, 
+                                            transformOrigin: 'right center',
+                                            whiteSpace: 'nowrap',
+                                            transition: 'transform 0.2s ease-out'
+                                        }}
+                                    >
                                         <BlockMath math={result.latexAnswer} />
                                     </div>
                                 ) : (
@@ -242,7 +287,7 @@ export default function AiCalculatorPage() {
                                         onChange={(e) => setProblem(e.target.value)}
                                         disabled={isLoading}
                                         autoFocus
-                                        className="text-5xl h-auto font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-right break-all"
+                                        className="text-5xl h-auto font-mono bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0 text-right break-all w-full"
                                     />
                                 )}
                             </div>
