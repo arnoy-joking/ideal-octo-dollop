@@ -86,7 +86,7 @@ export default function AiCalculatorPage() {
 
         const getCameraPermission = async () => {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
                 setHasCameraPermission(true);
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
@@ -382,7 +382,7 @@ export default function AiCalculatorPage() {
                 )}
             </Card>
             <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>Use Camera</DialogTitle>
                         <DialogDescription>Position the math problem in the frame and capture.</DialogDescription>
