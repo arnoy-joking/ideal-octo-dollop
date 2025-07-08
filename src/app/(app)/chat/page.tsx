@@ -14,7 +14,7 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
-import { Calculator, Loader2, Lightbulb, Delete, Equal, Camera, ImageUp, Trash2 } from "lucide-react";
+import { Calculator, Loader2, Lightbulb, Camera, ImageUp, Trash2 } from "lucide-react";
 import { solveMathProblem, type MathProblemInput, type MathProblemOutput } from "@/ai/flows/calculator-flow";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -107,19 +107,30 @@ export default function AiCalculatorPage() {
 
     const handleButtonClick = (value: string) => {
         if (isLoading) return;
+
+        if (value === 'Ans') {
+            if (result?.answer) {
+                setProblem(prev => prev + result.answer);
+            }
+            return;
+        }
         
         const isOperator = ['+', '-', '*', '/'].includes(value);
 
+        // If there's a result and the user types something that isn't an operator, start a new calculation
         if (result && !showExplanation) {
-             if (isOperator) {
+            if (isOperator) {
+                // Continue the calculation
                 setProblem(result.answer + value);
             } else {
+                // Start a new calculation
                 setProblem(value);
             }
             setResult(null);
             setLastProblem('');
             setImageDataUri(null);
         } else {
+            // Otherwise, just append to the current problem
             setProblem(prev => prev + value);
         }
     };
@@ -135,7 +146,7 @@ export default function AiCalculatorPage() {
 
     const handleBackspace = () => {
         if (isLoading) return;
-        if (result) {
+        if (result && !showExplanation) {
             setProblem('');
             setResult(null);
             setLastProblem('');
@@ -208,6 +219,7 @@ export default function AiCalculatorPage() {
         setShowExplanation(false);
         setLastProblem(trimmedProblem);
 
+        // Simple check to see if we should use local eval or send to AI
         if (!imageDataUri && /^[0-9+\-*/().\s^]+$/.test(trimmedProblem) && !/[a-zA-Z]/.test(trimmedProblem)) {
             try {
                 // Sanitize for eval
@@ -226,9 +238,11 @@ export default function AiCalculatorPage() {
                 setProblem(finalAnswer);
                 setIsLoading(false);
             } catch (error) {
+                // If local eval fails, fall back to AI
                 await solveWithAI({ problem: trimmedProblem, imageDataUri: undefined });
             }
         } else {
+            // Use AI for complex problems or problems with images
             await solveWithAI({
                 problem: trimmedProblem,
                 imageDataUri: imageDataUri || undefined
@@ -243,7 +257,7 @@ export default function AiCalculatorPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Calculator className="text-primary" />
-                        AI Calculator
+                        AI Scientific Calculator
                     </CardTitle>
                     <p className="text-muted-foreground pt-2">
                         Use buttons, type a problem, or upload an image of one.
@@ -305,46 +319,47 @@ export default function AiCalculatorPage() {
                         </div>
                         
                         <div className="grid grid-cols-5 gap-2">
-                             <Button type="button" variant="outline" onClick={() => handleButtonClick('sin(')}>sin</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('sin(')}>sin</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('cos(')}>cos</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('tan(')}>tan</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('log(')}>log</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('π')}>π</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('ln(')}>ln</Button>
 
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('(')}>(</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick(')')}>)</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('[')}>[</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick(']')}>]</Button>
-                            <Button type="button" variant="destructive" onClick={handleClear}>C</Button>
-
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('∫')}>∫</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('d/dx(')}>d/dx</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^')}>xʸ</Button>
                             <Button type="button" variant="outline" onClick={() => handleButtonClick('sqrt(')}>√</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('i')}>i</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^2')}>x²</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^')}>xʸ</Button>
+                            
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('^-1')}>x⁻¹</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('nCr(')}>nCr</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('nPr(')}>nPr</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('!')}>x!</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('d/dx(')}>d/dx</Button>
 
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('7')}>7</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('8')}>8</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('9')}>9</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')} aria-label="Fraction/Divide">a/b</Button>
-                            <Button type="button" variant="outline" onClick={handleBackspace} aria-label="Backspace"><Delete /></Button>
+                            <Button type="button" variant="destructive" onClick={handleBackspace}>DEL</Button>
+                            <Button type="button" variant="destructive" onClick={handleClear}>AC</Button>
 
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('4')}>4</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('5')}>5</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('6')}>6</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('*')} aria-label="Multiply">×</Button>
-                            <Button type="button" variant="outline" onClick={() => handleButtonClick('-')} aria-label="Subtract">−</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('*')}>×</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('/')}>÷</Button>
                             
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('1')}>1</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('2')}>2</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('3')}>3</Button>
-                             <Button type="button" variant="outline" onClick={() => handleButtonClick('+')} aria-label="Add">+</Button>
-                             <Button type="submit" variant="primary" className="row-span-2 text-lg" disabled={isLoading || (!problem.trim() && !imageDataUri)}>
-                                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Equal className="h-6 w-6"/>}
-                            </Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('+')}>+</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('-')}>−</Button>
 
-                            <Button type="button" variant="secondary" className="col-span-3" onClick={() => handleButtonClick('0')}>0</Button>
+                            <Button type="button" variant="secondary" onClick={() => handleButtonClick('0')}>0</Button>
                             <Button type="button" variant="secondary" onClick={() => handleButtonClick('.')}>.</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('π')}>π</Button>
+                            <Button type="button" variant="outline" onClick={() => handleButtonClick('Ans')}>Ans</Button>
+                            <Button type="submit" variant="primary" disabled={isLoading || (!problem.trim() && !imageDataUri)}>=</Button>
                         </div>
                     </CardContent>
                 </form>
@@ -369,7 +384,7 @@ export default function AiCalculatorPage() {
                                     <Lightbulb />
                                     Explanation
                                 </div>
-                                <div className="max-h-96 w-full overflow-auto rounded-md border bg-muted/50 p-4 text-base leading-relaxed whitespace-pre-wrap">
+                                <div className="max-h-96 w-full overflow-auto rounded-md border bg-muted/50 p-4 text-base">
                                     <BlockMath math={result.latexExplanation} renderError={(error) => {
                                         console.error("KaTeX Error:", error);
                                         toast({ title: "Rendering Error", description: "Could not display the explanation correctly.", variant: "destructive" });

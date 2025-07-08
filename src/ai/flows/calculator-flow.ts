@@ -35,12 +35,17 @@ const calculatorPrompt = ai.definePrompt({
 
     Examples of notation to support:
     - Differentiation: d/dx(x^2)
-    - Indefinite Integral: ∫ x^2 dx
+    - Indefinite Integral: ∫ x^2 dx or integrate x^2 dx
     - Definite Integral: integrate x^2 from 0 to 5
+    - Factorial: 5!
+    - Permutations: nPr(10, 3) or 10P3
+    - Combinations: nCr(10, 3) or 10C3
     - Matrices: [[1, 2], [3, 4]]
     - Complex numbers: (3 + 4i) * (2 - i)
-    - Trigonometry: sin(pi/2), cos(0), tan(45deg)
+    - Trigonometry: sin(pi/2), cos(0), tan(45deg), asin(1), acos(1), atan(1)
+    - Hyperbolic functions: sinh(0), cosh(0), tanh(0)
     - Logarithms: log(100), ln(e^2)
+    - Powers and Roots: 2^10, sqrt(16), cbrt(8)
     
     Your task is to:
     1.  Solve the problem accurately.
