@@ -317,9 +317,9 @@ function CourseManager() {
                 </AddEditCourseDialog>
             </div>
             {isOrderChanged && (
-                <div className="flex justify-end mb-4 p-4 border rounded-lg bg-secondary/50 items-center gap-4">
-                    <p className="text-sm font-medium text-secondary-foreground">You have unsaved changes to the course order.</p>
-                    <Button onClick={handleSaveOrder} disabled={isSavingOrder}>
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4 p-4 border rounded-lg bg-secondary/50">
+                    <p className="text-sm font-medium text-secondary-foreground text-center sm:text-left">You have unsaved changes to the course order.</p>
+                    <Button onClick={handleSaveOrder} disabled={isSavingOrder} className="w-full sm:w-auto">
                         {isSavingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Order
                     </Button>
