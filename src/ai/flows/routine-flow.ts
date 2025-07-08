@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow for generating a weekly study routine.
@@ -13,6 +14,7 @@ import { z } from 'zod';
 const GenerateRoutineInputSchema = z.object({
   courses: z.array(z.object({ id: z.string(), title: z.string() })).describe('A list of available courses with their IDs and titles.'),
   goals: z.string().describe("The user's learning goals to inform the routine."),
+  constraints: z.string().optional().describe("Optional user-provided constraints for scheduling, e.g., 'I am busy on Wednesday mornings' or 'I want to study Math at least 3 times a week'.")
 });
 export type GenerateRoutineInput = z.infer<typeof GenerateRoutineInputSchema>;
 
@@ -48,16 +50,22 @@ Available Courses:
 - {{title}} (id: {{id}})
 {{/each}}
 
+{{#if constraints}}
+User Constraints:
+{{{constraints}}}
+{{/if}}
+
 Instructions:
 1.  Create a schedule for the entire week (Sunday to Saturday).
 2.  Each day has exactly 4 available time slots.
 3.  Distribute the courses throughout the week to create a balanced schedule. Prioritize courses that seem most relevant to the user's goals.
-4.  It's okay to leave some slots empty, but try to schedule at least one or two sessions for each course during the week.
-5.  Set reasonable study times for the slots you fill (e.g., '09:00', '14:30', '19:00'). Use 24-hour format.
-6.  The output must be a valid JSON object matching the provided schema.
-7.  For each slot, provide the correct 'id' (format: 'Day-Index', e.g., 'Sunday-0'), 'time', and 'courseId'.
-8.  If a slot is empty, the 'time' and 'courseId' fields MUST be empty strings.
-9.  The 'courseId' you use MUST be one of the IDs from the 'Available Courses' list.
+4.  If the user provided any constraints, you MUST adhere to them. For example, if they are busy at a certain time, do not schedule anything then. If they have preferences for certain subjects, try to accommodate them.
+5.  It's okay to leave some slots empty, but try to schedule at least one or two sessions for each course during the week, unless constraints prevent it.
+6.  Set reasonable study times for the slots you fill (e.g., '09:00', '14:30', '19:00'). Use 24-hour format.
+7.  The output must be a valid JSON object matching the provided schema.
+8.  For each slot, provide the correct 'id' (format: 'Day-Index', e.g., 'Sunday-0'), 'time', and 'courseId'.
+9.  If a slot is empty, the 'time' and 'courseId' fields MUST be empty strings.
+10. The 'courseId' you use MUST be one of the IDs from the 'Available Courses' list.
 `
 });
 
