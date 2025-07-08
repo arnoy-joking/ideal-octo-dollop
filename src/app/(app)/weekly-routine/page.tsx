@@ -229,7 +229,7 @@ export default function WeeklyRoutinePage() {
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+                <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 mb-8">
                     <div>
                         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
                             <CalendarDays className="w-8 h-8" />
@@ -239,7 +239,7 @@ export default function WeeklyRoutinePage() {
                             Plan your study schedule for the week ahead. Saved to your profile.
                         </p>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex w-full flex-col gap-2 lg:w-auto lg:flex-row">
                          <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
                             <DialogTrigger asChild>
                                 <Button variant="outline" disabled={isGenerating || isLoading}>
