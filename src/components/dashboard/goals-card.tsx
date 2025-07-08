@@ -65,9 +65,12 @@ export function GoalsCard() {
     setIsGenerating(true);
     try {
         const suggestion = await suggestGoalEdits(editedGoals);
-        setEditedGoals(suggestion);
-        toast({ title: "Suggestions Applied", description: "The AI has refined your goals. Review and save them." });
+        if (suggestion?.revisedGoals) {
+            setEditedGoals(suggestion.revisedGoals);
+            toast({ title: "Suggestions Applied", description: "The AI has refined your goals. Review and save them." });
+        }
     } catch (error) {
+        console.error(error);
         toast({ title: "Error", description: "Could not generate suggestions. Please try again.", variant: "destructive" });
     } finally {
         setIsGenerating(false);

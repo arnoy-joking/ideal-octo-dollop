@@ -15,7 +15,9 @@ const SuggestGoalsInputSchema = z.object({
 });
 export type SuggestGoalsInput = z.infer<typeof SuggestGoalsInputSchema>;
 
-const SuggestGoalsOutputSchema = z.string().describe('A revised list of learning goals, improved to be more specific, measurable, achievable, relevant, and time-bound (SMART). The output should be a list separated by newlines.');
+const SuggestGoalsOutputSchema = z.object({
+    revisedGoals: z.string().describe('A revised list of learning goals, improved to be more specific, measurable, achievable, relevant, and time-bound (SMART). The output should be a list separated by newlines.')
+});
 export type SuggestGoalsOutput = z.infer<typeof SuggestGoalsOutputSchema>;
 
 
@@ -39,7 +41,7 @@ const suggestGoalEditsFlow = ai.defineFlow(
     },
     async (input) => {
         const { output } = await goalsPrompt(input);
-        return output || '';
+        return output!;
     }
 );
 
