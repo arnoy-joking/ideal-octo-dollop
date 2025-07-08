@@ -324,7 +324,7 @@ export default function AiCalculatorPage() {
                                     <Lightbulb />
                                     Explanation
                                 </div>
-                                <div className="max-h-72 w-full overflow-auto rounded-md border bg-muted/50 p-4 text-base leading-relaxed">
+                                <div className="max-h-96 w-full overflow-auto rounded-md border bg-muted/50 p-4 text-base leading-relaxed">
                                     <BlockMath math={result.latexExplanation} renderError={(error) => {
                                         console.error("KaTeX Error:", error);
                                         toast({ title: "Rendering Error", description: "Could not display the explanation correctly.", variant: "destructive" });
