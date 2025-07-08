@@ -10,7 +10,9 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-const SuggestGoalsInputSchema = z.string().describe("The user's current list of learning goals, separated by newlines.");
+const SuggestGoalsInputSchema = z.object({
+  goals: z.string().describe("The user's current list of learning goals, separated by newlines."),
+});
 export type SuggestGoalsInput = z.infer<typeof SuggestGoalsInputSchema>;
 
 const SuggestGoalsOutputSchema = z.string().describe('A revised list of learning goals, improved to be more specific, measurable, achievable, relevant, and time-bound (SMART). The output should be a list separated by newlines.');
@@ -26,7 +28,7 @@ const goalsPrompt = ai.definePrompt({
     Keep the same number of goals if possible and preserve the original intent. Present the result as a list separated by newlines. Do not add any extra text or commentary.
     
     User Goals:
-    {{{input}}}`,
+    {{{goals}}}`,
 });
 
 const suggestGoalEditsFlow = ai.defineFlow(
@@ -41,6 +43,6 @@ const suggestGoalEditsFlow = ai.defineFlow(
     }
 );
 
-export async function suggestGoalEdits(goals: SuggestGoalsInput): Promise<SuggestGoalsOutput> {
-  return await suggestGoalEditsFlow(goals);
+export async function suggestGoalEdits(goals: string): Promise<SuggestGoalsOutput> {
+  return await suggestGoalEditsFlow({ goals });
 }
