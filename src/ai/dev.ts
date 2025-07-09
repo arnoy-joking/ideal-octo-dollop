@@ -2,3 +2,4 @@
 import '@/ai/flows/goals-flow';
 import '@/ai/flows/routine-flow';
 import '@/ai/flows/calculator-flow';
+import '@/ai/flows/parser-flow';

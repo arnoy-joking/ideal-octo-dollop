@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import type { Course, Lesson } from '@/lib/types';
 import { getCoursesAction, addCourseAction, deleteCourseAction, updateCourseAction, updateCourseOrderAction } from '@/app/actions/course-actions';
+import { parseLessonsFromHtml } from '@/ai/flows/parser-flow';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +54,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Edit, Loader2, Lock, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Loader2, Lock, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -80,6 +81,9 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [bulkText, setBulkText] = useState('');
+    const [aiHtmlInput, setAiHtmlInput] = useState('');
+    const [pdfBaseUrl, setPdfBaseUrl] = useState('');
+    const [isParsing, setIsParsing] = useState(false);
     
     const form = useForm<CourseFormData>({
         resolver: zodResolver(courseSchema),
@@ -136,6 +140,49 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
         }
     };
 
+    const handleParseWithAI = async () => {
+        if (!aiHtmlInput.trim()) {
+            toast({
+                title: 'Input Required',
+                description: 'Please paste the HTML snippet into the text area.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        setIsParsing(true);
+        try {
+            const result = await parseLessonsFromHtml({
+                html: aiHtmlInput,
+                pdfBaseUrl: pdfBaseUrl.trim() ? pdfBaseUrl.trim().endsWith('/') ? pdfBaseUrl.trim() : `${pdfBaseUrl.trim()}/` : undefined
+            });
+
+            if (result.lessons && result.lessons.length > 0) {
+                const lessonsToAppend = result.lessons.map(l => ({ ...l, id: crypto.randomUUID() }));
+                append(lessonsToAppend);
+                toast({
+                    title: 'AI Parsing Complete',
+                    description: `Successfully parsed and appended ${result.lessons.length} lessons. Please review them before saving.`,
+                });
+                setAiHtmlInput('');
+            } else {
+                toast({
+                    title: 'Parsing Failed',
+                    description: 'The AI could not find any valid lessons in the provided HTML. Please check the format.',
+                    variant: 'destructive'
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            toast({
+                title: 'AI Error',
+                description: 'An error occurred while parsing with AI. Please try again.',
+                variant: 'destructive'
+            });
+        } finally {
+            setIsParsing(false);
+        }
+    };
+
 
     const onSubmit = async (data: CourseFormData) => {
         setIsSubmitting(true);
@@ -172,9 +219,10 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
                 </div>
                 
                 <Tabs defaultValue="manual" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-                        <TabsTrigger value="bulk">Bulk Add</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="manual">Manual</TabsTrigger>
+                        <TabsTrigger value="bulk">Bulk</TabsTrigger>
+                        <TabsTrigger value="ai">AI Parser</TabsTrigger>
                     </TabsList>
                     <TabsContent value="manual" className="space-y-4 pt-4">
                          {fields.length > 0 && <h3 className="text-lg font-medium">Lessons</h3>}
@@ -209,6 +257,40 @@ function CourseForm({ course, onFormSubmit, closeDialog, totalCourses }: { cours
                             />
                         </div>
                         <Button type="button" onClick={handleParseBulkLessons}>Parse & Add Lessons</Button>
+                    </TabsContent>
+                    <TabsContent value="ai" className="space-y-4 pt-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="ai-html-input">HTML Snippet</Label>
+                            <FormDescription>
+                                Paste the raw HTML containing lesson list items (e.g., from an existing course page).
+                            </FormDescription>
+                            <Textarea
+                                id="ai-html-input"
+                                value={aiHtmlInput}
+                                onChange={(e) => setAiHtmlInput(e.target.value)}
+                                rows={10}
+                                placeholder='<li class="watchli" data-vid="ZBIG8_mY3mg" data-vit="2" data-nname="Lesson 1" data-npdf="file.pdf">Lesson 1</li>'
+                                className="font-code text-xs"
+                                disabled={isParsing}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                             <Label htmlFor="pdf-base-url">PDF Base URL (Optional)</Label>
+                             <FormDescription>
+                                If PDFs are referenced by filename, provide the base URL to construct the full link (e.g., https://example.com/files/).
+                            </FormDescription>
+                            <Input
+                                id="pdf-base-url"
+                                value={pdfBaseUrl}
+                                onChange={(e) => setPdfBaseUrl(e.target.value)}
+                                placeholder="https://example.com/files/"
+                                disabled={isParsing}
+                            />
+                        </div>
+                        <Button type="button" onClick={handleParseWithAI} disabled={isParsing || !aiHtmlInput.trim()}>
+                            {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            Parse with AI & Add Lessons
+                        </Button>
                     </TabsContent>
                 </Tabs>
 
