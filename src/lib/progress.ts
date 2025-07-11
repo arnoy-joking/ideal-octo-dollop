@@ -11,7 +11,7 @@ import {
     writeBatch,
     updateDoc
 } from "firebase/firestore";
-import type { Lesson } from './types';
+import type { Lesson, ProgressRecord, PublicProgress } from './types';
 
 const progressCollection = collection(db, 'progress');
 const userActivityCollection = collection(db, 'userActivity');
@@ -83,6 +83,36 @@ export async function getAllProgress(): Promise<Record<string, Set<string>>> {
 
     return allProgress;
 }
+
+
+export async function getPublicProgressData(): Promise<Record<string, PublicProgress>> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startOfToday = Timestamp.fromDate(today);
+
+    const q = query(progressCollection, where("completed", "==", true));
+    const snapshot = await getDocs(q);
+
+    const allProgress: Record<string, PublicProgress> = {};
+
+    snapshot.docs.forEach(doc => {
+        const data = doc.data() as ProgressRecord;
+        const { userId, lessonId, completedAt } = data;
+
+        if (!allProgress[userId]) {
+            allProgress[userId] = { today: [], all: [] };
+        }
+        
+        allProgress[userId].all.push(lessonId);
+
+        if (completedAt && completedAt >= startOfToday) {
+            allProgress[userId].today.push(lessonId);
+        }
+    });
+
+    return allProgress;
+}
+
 
 export async function deleteProgressForUser(userId: string): Promise<void> {
     const batch = writeBatch(db);

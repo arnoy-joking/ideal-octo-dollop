@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as progressDb from '@/lib/progress';
-import type { Lesson } from '@/lib/types';
+import type { Lesson, PublicProgress } from '@/lib/types';
 
 export async function markLessonAsWatchedAction(userId: string, lesson: Lesson, courseId: string) {
     try {
@@ -40,6 +40,10 @@ export async function getAllProgressAction(): Promise<Record<string, string[]>> 
         progressArrays[userId] = Array.from(progressSets[userId]);
     }
     return progressArrays;
+}
+
+export async function getPublicProgressDataAction(): Promise<Record<string, PublicProgress>> {
+    return await progressDb.getPublicProgressData();
 }
 
 export async function getLessonProgressAction(userId: string, lessonId: string) {

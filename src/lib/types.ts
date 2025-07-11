@@ -1,3 +1,5 @@
+import type { Timestamp } from "firebase/firestore";
+
 export interface Lesson {
   id: string;
   title: string;
@@ -29,3 +31,17 @@ export interface RoutineSlot {
 }
 
 export type WeeklyRoutine = Record<string, RoutineSlot[]>;
+
+export interface ProgressRecord {
+    userId: string;
+    lessonId: string;
+    courseId: string;
+    completed: boolean;
+    completedAt: Timestamp;
+    updatedAt: Timestamp;
+}
+
+export interface PublicProgress {
+    today: string[];
+    all: string[];
+}
