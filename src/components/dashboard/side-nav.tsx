@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -8,13 +9,22 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarContent,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, Calculator } from "lucide-react";
+import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, Calculator, BookOpen, ChevronRight } from "lucide-react";
 import { AddUserDialog } from "./add-user-dialog";
 import { useUser } from "@/context/user-context";
 import { getUsersAction } from "@/app/actions/user-actions";
 import { Button } from "../ui/button";
+import { useState, useEffect } from "react";
+import type { Course } from "@/lib/types";
+import { getCoursesAction } from "@/app/actions/course-actions";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +34,69 @@ const menuItems = [
   { href: "/progress", label: "Public Progress", icon: ClipboardList },
   { href: "/manage-courses", label: "Manage Courses", icon: Lock },
 ];
+
+function CourseNav() {
+  const pathname = usePathname();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    async function loadCourses() {
+      setIsLoading(true);
+      const fetchedCourses = await getCoursesAction();
+      setCourses(fetchedCourses);
+      setIsLoading(false);
+    }
+    loadCourses();
+  }, []);
+
+  useEffect(() => {
+    // If we navigate to a class page, make sure the collapsible is open
+    if (pathname.includes('/class/')) {
+      setIsOpen(true);
+    }
+  }, [pathname]);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton tooltip="Your Courses" className="justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen />
+              <span>Your Courses</span>
+            </div>
+            <ChevronRight className={cn("transition-transform duration-200", isOpen && "rotate-90")} />
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
+      </SidebarMenuItem>
+      <CollapsibleContent>
+        <SidebarMenuSub>
+          {isLoading ? (
+            <>
+              <SidebarMenuSkeleton showIcon />
+              <SidebarMenuSkeleton showIcon />
+            </>
+          ) : (
+            courses.map((course) => (
+              <SidebarMenuSubItem key={course.id}>
+                <SidebarMenuSubButton
+                  asChild
+                  isActive={pathname === `/class/${course.slug}`}
+                >
+                  <Link href={`/class/${course.slug}`}>
+                    <span>{course.title}</span>
+                  </Link>
+                </SidebarMenuSubButton>
+              </SidebarMenuSubItem>
+            ))
+          )}
+        </SidebarMenuSub>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 export function SideNav() {
   const pathname = usePathname();
@@ -48,11 +121,26 @@ export function SideNav() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/dashboard"}
+              tooltip="Dashboard"
+            >
+              <Link href="/dashboard">
+                <LayoutDashboard />
+                <span>Dashboard</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
+          <CourseNav />
+
+          {menuItems.slice(1).map((item) => ( // Render other items, skipping dashboard
             <SidebarMenuItem key={item.label}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href) && (item.href !== '#' || pathname === item.href)}
+                isActive={pathname.startsWith(item.href)}
                 tooltip={item.label}
               >
                 <Link href={item.href}>
