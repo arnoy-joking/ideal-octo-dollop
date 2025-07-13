@@ -189,7 +189,6 @@
   }
 }
 
-
 @layer base {
   * {
     @apply border-border;
@@ -218,14 +217,6 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
   }
 
-  /* Blurry Transparent Effect for Image Themes */
-  .theme-ocean, .theme-sunset, .theme-forest {
-    --card-background: hsla(var(--card), 0.6);
-    --popover-background: hsla(var(--popover), 0.75);
-    --sidebar-bg: hsla(var(--sidebar-background), 0.6);
-    --header-bg: hsla(var(--background), 0.5);
-    --border-color: hsla(var(--border), 0.3);
-  }
 }
 
 @layer components {
@@ -237,27 +228,22 @@
     }
 
     .theme-ocean .card, .theme-sunset .card, .theme-forest .card {
-        background-color: var(--card-background);
-        border-color: var(--border-color);
+        background-color: hsla(var(--card), 0.6);
+        border-color: hsla(var(--border), 0.3);
     }
     
     .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover {
-        background-color: var(--popover-background);
-        border-color: var(--border-color);
+        background-color: hsla(var(--popover), 0.75);
+        border-color: hsla(var(--border), 0.3);
     }
     
     .theme-ocean [data-sidebar="sidebar"], .theme-sunset [data-sidebar="sidebar"], .theme-forest [data-sidebar="sidebar"] {
-        background-color: var(--sidebar-bg);
+        background-color: hsla(var(--sidebar-background), 0.6);
+        --sidebar-border: hsla(var(--sidebar-border), 0.3);
     }
     
     .theme-ocean header, .theme-sunset header, .theme-forest header {
-        background-color: var(--header-bg);
-        border-bottom-color: var(--border-color);
+        background-color: hsla(var(--background), 0.5);
+        border-bottom-color: hsla(var(--border), 0.3);
     }
-
-     .theme-ocean [data-sidebar="sidebar"] {
-        --sidebar-border: hsla(var(--sidebar-border), 0.3);
-     }
 }
-
-    
