@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -46,8 +47,12 @@ export default function AppLayout({
       </Sidebar>
       <SidebarInset>
         <Header />
-        {children}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-transparent">
+          {children}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+
+    
