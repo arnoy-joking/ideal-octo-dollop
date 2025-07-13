@@ -78,7 +78,7 @@
   .theme-ocean {
     --background: 200 100% 98%;
     --foreground: 215 40% 10%;
-    --card: 200 100% 100%;
+    --card: 200 50% 90%;
     --card-foreground: 215 40% 10%;
     --popover: 200 100% 100%;
     --popover-foreground: 215 40% 10%;
@@ -104,12 +104,8 @@
   }
   
   .theme-ocean body {
-      background-image: linear-gradient(to top, hsla(var(--background), 0.7) 0%, hsla(var(--background), 1) 40%), url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
-      background-size: cover;
-      background-attachment: fixed;
-      background-position: center;
+    background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=1470&auto=format&fit=crop");
   }
-
 
   .theme-sunset {
     --background: 20 5% 5%;
@@ -140,10 +136,7 @@
   }
 
   .theme-sunset body {
-      background-image: linear-gradient(to top, hsla(var(--background), 0.7) 0%, hsla(var(--background), 1) 40%), url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1074&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
-      background-size: cover;
-      background-attachment: fixed;
-      background-position: center;
+    background-image: url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1074&auto=format&fit=crop");
   }
 
   .theme-forest {
@@ -175,10 +168,7 @@
   }
 
    .theme-forest body {
-      background-image: linear-gradient(to top, hsla(var(--background), 0.7) 0%, hsla(var(--background), 1) 40%), url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
-      background-size: cover;
-      background-attachment: fixed;
-      background-position: center;
+    background-image: url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470&auto=format&fit=crop");
   }
 
   .theme-darkest {
@@ -213,6 +203,59 @@
       background-color: hsl(var(--background));
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
   }
+
+  .theme-ocean body,
+  .theme-sunset body,
+  .theme-forest body {
+      background-size: cover;
+      background-attachment: fixed;
+      background-position: center;
+  }
+
+  /* Blurry Transparent Effect for Image Themes */
+  .theme-ocean, .theme-sunset, .theme-forest {
+    --card-background: hsla(var(--card), 0.6);
+    --popover-background: hsla(var(--popover), 0.75);
+    --sidebar-bg: hsla(var(--sidebar-background), 0.6);
+    --header-bg: hsla(var(--background), 0.5);
+    --border-color: hsla(var(--border), 0.3);
+  }
+
+  .theme-ocean *, .theme-sunset *, .theme-forest * {
+    --tw-border-opacity: 1;
+  }
+}
+
+@layer components {
+    .theme-ocean .card, .theme-sunset .card, .theme-forest .card,
+    .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover,
+    [data-sidebar="sidebar"],
+    .theme-ocean header, .theme-sunset header, .theme-forest header {
+        @apply backdrop-blur-md;
+    }
+
+    .theme-ocean .card, .theme-sunset .card, .theme-forest .card {
+        background-color: var(--card-background);
+        border-color: var(--border-color);
+    }
+    
+    .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover {
+        background-color: var(--popover-background);
+        border-color: var(--border-color);
+    }
+    
+    .theme-ocean [data-sidebar="sidebar"], .theme-sunset [data-sidebar="sidebar"], .theme-forest [data-sidebar="sidebar"] {
+        background-color: var(--sidebar-bg);
+    }
+    
+    .theme-ocean header, .theme-sunset header, .theme-forest header {
+        background-color: var(--header-bg);
+        border-bottom-color: var(--border-color);
+    }
+
+     .theme-ocean [data-sidebar="sidebar"] {
+        --sidebar-border: hsla(var(--sidebar-border), 0.3);
+     }
 }
 
 @layer base {
