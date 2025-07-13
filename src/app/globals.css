@@ -77,43 +77,43 @@
   /* Custom Themes */
   .theme-ocean {
     --background: 200 100% 98%;
-    --foreground: 215 40% 25%;
+    --foreground: 215 40% 10%;
     --card: 200 100% 100%;
-    --card-foreground: 215 40% 25%;
+    --card-foreground: 215 40% 10%;
     --popover: 200 100% 100%;
-    --popover-foreground: 215 40% 25%;
-    --primary: 190 70% 50%;
-    --primary-foreground: 215 40% 15%;
+    --popover-foreground: 215 40% 10%;
+    --primary: 190 80% 45%;
+    --primary-foreground: 215 40% 98%;
     --secondary: 200 60% 92%;
     --secondary-foreground: 215 40% 25%;
     --muted: 200 60% 92%;
     --muted-foreground: 215 30% 55%;
-    --accent: 45 40% 80%;
-    --accent-foreground: 45 30% 20%;
+    --accent: 45 90% 80%;
+    --accent-foreground: 45 50% 20%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 200 50% 90%;
     --input: 200 50% 90%;
-    --ring: 190 70% 50%;
+    --ring: 190 80% 45%;
     --sidebar-background: 215 40% 25%;
     --sidebar-foreground: 200 100% 98%;
-    --sidebar-accent: 190 70% 50%;
-    --sidebar-accent-foreground: 215 40% 15%;
+    --sidebar-accent: 190 80% 45%;
+    --sidebar-accent-foreground: 215 40% 10%;
     --sidebar-border: 215 30% 35%;
-    --sidebar-ring: 190 70% 50%;
+    --sidebar-ring: 190 80% 45%;
   }
   
   .theme-ocean body {
-      background-image: linear-gradient(to top, rgba(255, 255, 255, 0) 60%, hsl(var(--background))), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40' width='80' height='40'%3E%3Cpath fill='hsl(200, 60%25, 92%25)' fill-opacity='0.4' d='M0 40a20 20 0 0120-20 20 20 0 0120 20v20h-40zM40 40a20 20 0 0120-20 20 20 0 0120 20v20h-40z'%3E%3C/path%3E%3C/svg%3E");
+      background-image: linear-gradient(to top, rgba(255, 255, 255, 0) 60%, hsl(var(--background))), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cdefs%3E%3Cfilter id='a' x='-20%25' y='-20%25' width='140%25' height='140%25' filterUnits='objectBoundingBox' primitiveUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='3' seed='2' stitchTiles='stitch' x='0%25' y='0%25' width='100%25' height='100%25' result='turbulence'%3E%3C/feTurbulence%3E%3CfeSpecularLighting surfaceScale='10' specularConstant='.75' specularExponent='20' lighting-color='hsl(200, 60%25, 92%25)' x='0%25' y='0%25' width='100%25' height='100%25' in='turbulence' result='specularLighting'%3E%3CfeDistantLight azimuth='3' elevation='100'%3E%3C/feDistantLight%3E%3C/feSpecularLighting%3E%3C/filter%3E%3C/defs%3E%3Crect width='120' height='120' fill='hsl(200, 100%25, 98%25)'%3E%3C/rect%3E%3Crect width='120' height='120' fill='hsl(200, 60%25, 92%25)' filter='url(%23a)'%3E%3C/rect%3E%3C/svg%3E");
   }
 
 
   .theme-sunset {
-    --background: 260 20% 12%;
+    --background: 20 5% 5%;
     --foreground: 25 60% 90%;
-    --card: 260 20% 15%;
+    --card: 20 10% 8%;
     --card-foreground: 25 60% 90%;
-    --popover: 260 20% 15%;
+    --popover: 20 10% 8%;
     --popover-foreground: 25 60% 90%;
     --primary: 20 95% 55%;
     --primary-foreground: 20 50% 10%;
@@ -125,19 +125,23 @@
     --accent-foreground: 35 40% 10%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 260 15% 25%;
-    --input: 260 15% 25%;
+    --border: 20 10% 15%;
+    --input: 20 10% 15%;
     --ring: 20 95% 55%;
-    --sidebar-background: 260 20% 15%;
+    --sidebar-background: 20 10% 8%;
     --sidebar-foreground: 25 60% 90%;
     --sidebar-accent: 20 95% 55%;
     --sidebar-accent-foreground: 20 50% 10%;
-    --sidebar-border: 260 15% 25%;
+    --sidebar-border: 20 10% 15%;
     --sidebar-ring: 20 95% 55%;
   }
 
   .theme-sunset body {
-      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='hsl(30, 30%25, 22%25)' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      background-color: hsl(var(--background));
+      background-image:
+        radial-gradient(ellipse at 50% 120%, hsl(35 90% 60% / 0.5), transparent),
+        radial-gradient(ellipse at 80% 30%, hsl(20 95% 55% / 0.6), transparent),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cfilter id='n' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.1'/%3E%3C/svg%3E");
   }
 
   .theme-forest {
@@ -169,7 +173,9 @@
   }
 
    .theme-forest body {
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250' viewBox='0 0 100 100'%3E%3Cg fill='hsl(100, 15%25, 90%25)' fill-opacity='0.6'%3E%3Cpath d='M11 0v20H0v10h11v20H0v10h11v20H0v10h11v20H0v10h11zM100 11h-20V0h-10v11h-20V0h-10v11h-20V0h-10v11H0v20h10V11h20v20h10V11h20v20h10V11h20v20h10V11zM31 100V80h10v20h10V80h10v20h10V80h10v20h10V80h10v20h10z'/%3E%3C/g%3E%3C/svg%3E");
+      background-image: 
+        linear-gradient(to top, rgba(255, 255, 255, 0) 60%, hsl(var(--background))), 
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Cg fill='hsl(100, 15%25, 90%25)' fill-opacity='0.4'%3E%3Cpath fill-opacity='1' d='M20.5 100l-20 17.3V82.7zM41 134.6l-20-17.3V117.3zM61.5 169.3l-20-17.3V152zM82 34.6l-20-17.3V17.3zM102.5 69.3l-20-17.3V52zM123 103.9l-20-17.3V86.6zM143.5 138.6l-20-17.3V121.3zM164 173.2l-20-17.3V155.9zM184.5 100l20 17.3V82.7zM164 26.8l20 17.3V26.8zM143.5 61.4l20 17.3V61.4zM123 96.1l20 17.3V96.1zM102.5 130.7l20 17.3V130.7zM82 165.4l20 17.3V165.4zM61.5 30.7l20 17.3V30.7zM41 65.4l20 17.3V65.4zM20.5 100l20 17.3V82.7zM0 117.3l20.5-17.3L0 82.7zM-20.5 100l20-17.3v34.6z'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   .theme-darkest {
@@ -198,6 +204,11 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 10% 15%;
     --sidebar-ring: 210 40% 50%;
+  }
+
+  .theme-darkest body {
+      background-color: hsl(var(--background));
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
   }
 }
 
