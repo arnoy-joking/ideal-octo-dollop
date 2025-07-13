@@ -22,7 +22,7 @@
     --accent-foreground: 30 50% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 158 20% 80% / 0.3;
+    --border: 158 20% 80%;
     --input: 158 20% 80%;
     --ring: 142 76% 36%;
     --chart-1: 12 76% 61%;
@@ -57,7 +57,7 @@
     --accent-foreground: 30 50% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 135 10% 25% / 0.3;
+    --border: 135 10% 25%;
     --input: 135 10% 25%;
     --ring: 25 80% 55%;
     --chart-1: 220 70% 50%;
@@ -79,7 +79,7 @@
   .theme-ocean {
     --background: 200 100% 98%;
     --foreground: 215 40% 10%;
-    --card: 200 50% 90% / 0.6;
+    --card: 200 50% 90% / var(--bg-opacity, 0.6);
     --card-foreground: 215 40% 10%;
     --popover: 200 100% 100%;
     --popover-foreground: 215 40% 10%;
@@ -107,7 +107,7 @@
   .theme-sunset {
     --background: 20 5% 5%;
     --foreground: 25 60% 90%;
-    --card: 20 10% 8% / 0.6;
+    --card: 20 10% 8% / var(--bg-opacity, 0.6);
     --card-foreground: 25 60% 90%;
     --popover: 20 10% 8%;
     --popover-foreground: 25 60% 90%;
@@ -135,7 +135,7 @@
   .theme-forest {
     --background: 80 20% 96%;
     --foreground: 120 25% 15%;
-    --card: 80 20% 99% / 0.6;
+    --card: 80 20% 99% / var(--bg-opacity, 0.6);
     --card-foreground: 120 25% 15%;
     --popover: 80 20% 99%;
     --popover-foreground: 120 25% 15%;
@@ -163,7 +163,7 @@
   .theme-darkest {
     --background: 240 10% 4%;
     --foreground: 240 5% 80%;
-    --card: 240 10% 6% / 0.6;
+    --card: 240 10% 6% / var(--bg-opacity, 0.6);
     --card-foreground: 240 5% 80%;
     --popover: 240 10% 6%;
     --popover-foreground: 240 5% 80%;
@@ -199,39 +199,30 @@
     background-attachment: fixed;
     background-position: center;
   }
-
-  html.theme-ocean body {
-    background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=1470&auto=format&fit=crop");
-  }
-
-  html.theme-sunset body {
-    background-image: url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1074&auto=format&fit=crop");
-  }
-
-  html.theme-forest body {
-    background-image: url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470&auto=format&fit=crop");
-  }
   
+  html.theme-ocean body,
+  html.theme-sunset body,
+  html.theme-forest body,
   html.theme-darkest body {
-      background-color: hsl(var(--background));
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
+    background-image: var(--bg-image-url);
   }
-
 }
 
 @layer components {
-    html[class^="theme-"] [data-sidebar="sidebar"],
-    html[class^="theme-"] header {
-        @apply backdrop-blur-md;
-    }
+  html[class^="theme-"] [data-sidebar="sidebar"],
+  html[class^="theme-"] header,
+  html[class^="theme-"] .card,
+  html[class^="theme-"] [role="dialog"],
+  html[class^="theme-"] [role="popover"] {
+      backdrop-filter: var(--bg-blur, blur(4px));
+      -webkit-backdrop-filter: var(--bg-blur, blur(4px));
+  }
+  
+  html[class^="theme-"] [data-sidebar="sidebar"] {
+      background-color: hsla(var(--sidebar-background), var(--bg-opacity, 0.5));
+  }
 
-    html[class^="theme-"] [data-sidebar="sidebar"] {
-        background-color: hsla(var(--sidebar-background), 0.6);
-        --sidebar-border: hsla(var(--sidebar-border), 0.3);
-    }
-    
-    html[class^="theme-"] header {
-        background-color: hsla(var(--background), 0.5);
-        border-bottom-color: hsla(var(--border), 0.3);
-    }
+  html[class^="theme-"] header {
+      background-color: hsla(var(--background), var(--bg-opacity, 0.5));
+  }
 }

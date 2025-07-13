@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 export interface Lesson {
@@ -46,3 +47,11 @@ export interface PublicProgress {
     recent: string[];
     all: string[];
 }
+
+export type ThemeSettings = {
+  [key: string]: {
+    imageUrl: string;
+    opacity: number;
+    blur: number;
+  };
+};

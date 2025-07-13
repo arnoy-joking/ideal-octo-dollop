@@ -150,6 +150,18 @@ export function SideNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+            <SidebarMenuItem>
+                <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith("/settings")}
+                tooltip="Settings"
+                >
+                <Link href="/settings">
+                    <Settings />
+                    <span>Settings</span>
+                </Link>
+                </SidebarMenuButton>
+            </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-2 border-t border-sidebar-border">
