@@ -15,24 +15,27 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children, initialUsers }: { children: ReactNode; initialUsers: User[] }) {
     const [users, setUsers] = useState<User[]>(initialUsers);
     const [currentUser, setCurrentUserInternal] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        setIsLoading(true);
-        try {
-            const lastUserId = localStorage.getItem('currentUser');
-            if (lastUserId) {
-                const user = users.find(u => u.id === lastUserId);
-                setCurrentUserInternal(user || null);
-            } else {
-                setCurrentUserInternal(null);
+      setIsMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (isMounted) {
+            try {
+                const lastUserId = localStorage.getItem('currentUser');
+                if (lastUserId) {
+                    const user = users.find(u => u.id === lastUserId);
+                    setCurrentUserInternal(user || null);
+                } else {
+                    setCurrentUserInternal(null);
+                }
+            } catch (error) {
+                setCurrentUserInternal(null)
             }
-        } catch (error) {
-            setCurrentUserInternal(null)
-        } finally {
-            setIsLoading(false);
         }
-    }, [users]);
+    }, [isMounted, users]);
     
     const setCurrentUser = (user: User | null) => {
         setCurrentUserInternal(user);
@@ -47,6 +50,7 @@ export function UserProvider({ children, initialUsers }: { children: ReactNode; 
         }
     };
 
+    const isLoading = !isMounted;
     const value = { currentUser, setCurrentUser, users, setUsers, isLoading };
 
     return (
