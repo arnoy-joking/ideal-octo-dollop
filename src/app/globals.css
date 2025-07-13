@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -102,8 +103,8 @@
     --sidebar-border: 215 30% 35%;
     --sidebar-ring: 190 80% 45%;
   }
-  
-  .theme-ocean body {
+
+  .theme-ocean {
     background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=1470&auto=format&fit=crop");
   }
 
@@ -135,7 +136,7 @@
     --sidebar-ring: 20 95% 55%;
   }
 
-  .theme-sunset body {
+  .theme-sunset {
     background-image: url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1074&auto=format&fit=crop");
   }
 
@@ -167,7 +168,7 @@
     --sidebar-ring: 130 40% 35%;
   }
 
-   .theme-forest body {
+   .theme-forest {
     background-image: url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470&auto=format&fit=crop");
   }
 
@@ -199,17 +200,9 @@
     --sidebar-ring: 210 40% 50%;
   }
 
-  .theme-darkest body {
+  .theme-darkest {
       background-color: hsl(var(--background));
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
-  }
-
-  .theme-ocean body,
-  .theme-sunset body,
-  .theme-forest body {
-      background-size: cover;
-      background-attachment: fixed;
-      background-position: center;
   }
 
   /* Blurry Transparent Effect for Image Themes */
@@ -220,16 +213,12 @@
     --header-bg: hsla(var(--background), 0.5);
     --border-color: hsla(var(--border), 0.3);
   }
-
-  .theme-ocean *, .theme-sunset *, .theme-forest * {
-    --tw-border-opacity: 1;
-  }
 }
 
 @layer components {
     .theme-ocean .card, .theme-sunset .card, .theme-forest .card,
     .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover,
-    [data-sidebar="sidebar"],
+    .theme-ocean [data-sidebar="sidebar"], .theme-sunset [data-sidebar="sidebar"], .theme-forest [data-sidebar="sidebar"],
     .theme-ocean header, .theme-sunset header, .theme-forest header {
         @apply backdrop-blur-md;
     }
@@ -264,5 +253,11 @@
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
+  }
+
+  .theme-ocean, .theme-sunset, .theme-forest {
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
   }
 }
