@@ -14,10 +14,10 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const themes = [
-    { name: "Default", theme: "default", color: "hsl(135 28% 30%)" },
-    { name: "Ocean", theme: "ocean", color: "hsl(205 79% 51%)" },
-    { name: "Sunset", theme: "sunset", color: "hsl(30 96% 54%)" },
-    { name: "Forest", theme: "forest", color: "hsl(130 40% 40%)" },
+    { name: "Default", theme: "default", color: "hsl(142 76% 36%)" },
+    { name: "Ocean", theme: "ocean", color: "hsl(190 70% 50%)" },
+    { name: "Sunset", theme: "sunset", color: "hsl(20 95% 55%)" },
+    { name: "Forest", theme: "forest", color: "hsl(130 40% 35%)" },
     { name: "Darkest", theme: "darkest", color: "hsl(210 40% 50%)" },
 ];
 
