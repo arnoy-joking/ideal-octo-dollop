@@ -8,7 +8,7 @@
   .theme-default {
     --background: 80 20% 96%;
     --foreground: 120 25% 15%;
-    --card: 80 20% 99%;
+    --card: 80 20% 99% / 0.6;
     --card-foreground: 120 25% 15%;
     --popover: 80 20% 99%;
     --popover-foreground: 120 25% 15%;
@@ -22,7 +22,7 @@
     --accent-foreground: 30 50% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 158 20% 80%;
+    --border: 158 20% 80% / 0.3;
     --input: 158 20% 80%;
     --ring: 142 76% 36%;
     --chart-1: 12 76% 61%;
@@ -43,7 +43,7 @@
   .dark {
     --background: 135 10% 12%;
     --foreground: 158 25% 95%;
-    --card: 135 10% 15%;
+    --card: 135 10% 15% / 0.6;
     --card-foreground: 158 25% 95%;
     --popover: 135 10% 15%;
     --popover-foreground: 158 25% 95%;
@@ -57,7 +57,7 @@
     --accent-foreground: 30 50% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 135 10% 25%;
+    --border: 135 10% 25% / 0.3;
     --input: 135 10% 25%;
     --ring: 25 80% 55%;
     --chart-1: 220 70% 50%;
@@ -79,7 +79,7 @@
   .theme-ocean {
     --background: 200 100% 98%;
     --foreground: 215 40% 10%;
-    --card: 200 50% 90%;
+    --card: 200 50% 90% / 0.6;
     --card-foreground: 215 40% 10%;
     --popover: 200 100% 100%;
     --popover-foreground: 215 40% 10%;
@@ -93,7 +93,7 @@
     --accent-foreground: 45 50% 20%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 200 50% 90%;
+    --border: 200 50% 90% / 0.3;
     --input: 200 50% 90%;
     --ring: 190 80% 45%;
     --sidebar-background: 215 40% 25%;
@@ -107,7 +107,7 @@
   .theme-sunset {
     --background: 20 5% 5%;
     --foreground: 25 60% 90%;
-    --card: 20 10% 8%;
+    --card: 20 10% 8% / 0.6;
     --card-foreground: 25 60% 90%;
     --popover: 20 10% 8%;
     --popover-foreground: 25 60% 90%;
@@ -121,7 +121,7 @@
     --accent-foreground: 35 40% 10%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 20 10% 15%;
+    --border: 20 10% 15% / 0.3;
     --input: 20 10% 15%;
     --ring: 20 95% 55%;
     --sidebar-background: 20 10% 8%;
@@ -135,7 +135,7 @@
   .theme-forest {
     --background: 80 20% 96%;
     --foreground: 120 25% 15%;
-    --card: 80 20% 99%;
+    --card: 80 20% 99% / 0.6;
     --card-foreground: 120 25% 15%;
     --popover: 80 20% 99%;
     --popover-foreground: 120 25% 15%;
@@ -149,7 +149,7 @@
     --accent-foreground: 30 25% 15%;
     --destructive: 0 80% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 130 20% 85%;
+    --border: 130 20% 85% / 0.3;
     --input: 130 20% 85%;
     --ring: 130 40% 35%;
     --sidebar-background: 120 25% 15%;
@@ -163,7 +163,7 @@
   .theme-darkest {
     --background: 240 10% 4%;
     --foreground: 240 5% 80%;
-    --card: 240 10% 6%;
+    --card: 240 10% 6% / 0.6;
     --card-foreground: 240 5% 80%;
     --popover: 240 10% 6%;
     --popover-foreground: 240 5% 80%;
@@ -177,7 +177,7 @@
     --accent-foreground: 0 0% 98%;
     --destructive: 0 70% 40%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 10% 15%;
+    --border: 240 10% 15% / 0.3;
     --input: 240 10% 15%;
     --ring: 210 40% 50%;
     --sidebar-background: 240 10% 6%;
@@ -200,19 +200,19 @@
     background-position: center;
   }
 
-  .theme-ocean body {
+  html.theme-ocean body {
     background-image: url("https://images.unsplash.com/photo-1542281286-9e0a16bb7366?q=80&w=1470&auto=format&fit=crop");
   }
 
-  .theme-sunset body {
+  html.theme-sunset body {
     background-image: url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1074&auto=format&fit=crop");
   }
 
-  .theme-forest body {
+  html.theme-forest body {
     background-image: url("https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1470&auto=format&fit=crop");
   }
   
-  .theme-darkest body {
+  html.theme-darkest body {
       background-color: hsl(var(--background));
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.005' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='2000' height='2000' filter='url(%23n)' opacity='0.2'/%3E%3C/svg%3E");
   }
@@ -220,29 +220,17 @@
 }
 
 @layer components {
-    .theme-ocean .card, .theme-sunset .card, .theme-forest .card,
-    .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover,
-    .theme-ocean [data-sidebar="sidebar"], .theme-sunset [data-sidebar="sidebar"], .theme-forest [data-sidebar="sidebar"],
-    .theme-ocean header, .theme-sunset header, .theme-forest header {
+    html[class^="theme-"] [data-sidebar="sidebar"],
+    html[class^="theme-"] header {
         @apply backdrop-blur-md;
     }
 
-    .theme-ocean .card, .theme-sunset .card, .theme-forest .card {
-        background-color: hsla(var(--card), 0.6);
-        border-color: hsla(var(--border), 0.3);
-    }
-    
-    .theme-ocean .popover, .theme-sunset .popover, .theme-forest .popover {
-        background-color: hsla(var(--popover), 0.75);
-        border-color: hsla(var(--border), 0.3);
-    }
-    
-    .theme-ocean [data-sidebar="sidebar"], .theme-sunset [data-sidebar="sidebar"], .theme-forest [data-sidebar="sidebar"] {
+    html[class^="theme-"] [data-sidebar="sidebar"] {
         background-color: hsla(var(--sidebar-background), 0.6);
         --sidebar-border: hsla(var(--sidebar-border), 0.3);
     }
     
-    .theme-ocean header, .theme-sunset header, .theme-forest header {
+    html[class^="theme-"] header {
         background-color: hsla(var(--background), 0.5);
         border-bottom-color: hsla(var(--border), 0.3);
     }
