@@ -5,18 +5,18 @@
 @layer base {
   :root,
   .theme-default {
-    --background: 158 25% 95%;
-    --foreground: 135 28% 15%;
-    --card: 158 25% 99%;
-    --card-foreground: 135 28% 15%;
-    --popover: 158 25% 99%;
-    --popover-foreground: 135 28% 15%;
-    --primary: 142 76% 36%;
-    --primary-foreground: 142 20% 95%;
-    --secondary: 158 20% 88%;
-    --secondary-foreground: 135 28% 25%;
-    --muted: 158 20% 88%;
-    --muted-foreground: 135 20% 45%;
+    --background: 80 20% 96%;
+    --foreground: 120 25% 15%;
+    --card: 80 20% 99%;
+    --card-foreground: 120 25% 15%;
+    --popover: 80 20% 99%;
+    --popover-foreground: 120 25% 15%;
+    --primary: 130 40% 35%;
+    --primary-foreground: 90 40% 98%;
+    --secondary: 100 15% 90%;
+    --secondary-foreground: 120 25% 20%;
+    --muted: 100 15% 90%;
+    --muted-foreground: 120 15% 50%;
     --accent: 25 80% 55%;
     --accent-foreground: 30 50% 98%;
     --destructive: 0 84.2% 60.2%;
@@ -76,19 +76,19 @@
 
   /* Custom Themes */
   .theme-ocean {
-    --background: 200 100% 98%; /* Clean white-blue */
-    --foreground: 215 40% 25%; /* Deep sea blue */
+    --background: 200 100% 98%;
+    --foreground: 215 40% 25%;
     --card: 200 100% 100%;
     --card-foreground: 215 40% 25%;
     --popover: 200 100% 100%;
     --popover-foreground: 215 40% 25%;
-    --primary: 190 70% 50%; /* Vibrant turquoise */
+    --primary: 190 70% 50%;
     --primary-foreground: 215 40% 15%;
-    --secondary: 200 60% 92%; /* Light seafoam */
+    --secondary: 200 60% 92%;
     --secondary-foreground: 215 40% 25%;
     --muted: 200 60% 92%;
     --muted-foreground: 215 30% 55%;
-    --accent: 45 40% 80%; /* Sandy beige */
+    --accent: 45 40% 80%;
     --accent-foreground: 45 30% 20%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
@@ -102,21 +102,26 @@
     --sidebar-border: 215 30% 35%;
     --sidebar-ring: 190 70% 50%;
   }
+  
+  .theme-ocean body {
+      background-image: linear-gradient(to top, rgba(255, 255, 255, 0) 60%, hsl(var(--background))), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40' width='80' height='40'%3E%3Cpath fill='hsl(200, 60%25, 92%25)' fill-opacity='0.4' d='M0 40a20 20 0 0120-20 20 20 0 0120 20v20h-40zM40 40a20 20 0 0120-20 20 20 0 0120 20v20h-40z'%3E%3C/path%3E%3C/svg%3E");
+  }
+
 
   .theme-sunset {
-    --background: 260 20% 12%; /* Deep indigo sky */
-    --foreground: 25 60% 90%; /* Soft cloud white */
+    --background: 260 20% 12%;
+    --foreground: 25 60% 90%;
     --card: 260 20% 15%;
     --card-foreground: 25 60% 90%;
     --popover: 260 20% 15%;
     --popover-foreground: 25 60% 90%;
-    --primary: 20 95% 55%; /* Fiery orange */
+    --primary: 20 95% 55%;
     --primary-foreground: 20 50% 10%;
-    --secondary: 30 30% 22%; /* Dark, warm earth */
+    --secondary: 30 30% 22%;
     --secondary-foreground: 25 60% 90%;
     --muted: 30 30% 22%;
     --muted-foreground: 25 40% 70%;
-    --accent: 35 90% 60%; /* Bright yellow sun ray */
+    --accent: 35 90% 60%;
     --accent-foreground: 35 40% 10%;
     --destructive: 0 72.2% 50.6%;
     --destructive-foreground: 0 0% 98%;
@@ -131,20 +136,24 @@
     --sidebar-ring: 20 95% 55%;
   }
 
+  .theme-sunset body {
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='hsl(30, 30%25, 22%25)' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+
   .theme-forest {
-    --background: 80 20% 96%; /* Off-white with green tint */
-    --foreground: 120 25% 15%; /* Dark forest green */
+    --background: 80 20% 96%;
+    --foreground: 120 25% 15%;
     --card: 80 20% 99%;
     --card-foreground: 120 25% 15%;
     --popover: 80 20% 99%;
     --popover-foreground: 120 25% 15%;
-    --primary: 130 40% 35%; /* Rich, natural green */
+    --primary: 130 40% 35%;
     --primary-foreground: 90 40% 98%;
-    --secondary: 100 15% 90%; /* Soft moss green */
+    --secondary: 100 15% 90%;
     --secondary-foreground: 120 25% 20%;
     --muted: 100 15% 90%;
     --muted-foreground: 120 15% 50%;
-    --accent: 30 40% 60%; /* Earthy brown */
+    --accent: 30 40% 60%;
     --accent-foreground: 30 25% 15%;
     --destructive: 0 80% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -157,6 +166,10 @@
     --sidebar-accent-foreground: 90 40% 98%;
     --sidebar-border: 120 20% 25%;
     --sidebar-ring: 130 40% 35%;
+  }
+
+   .theme-forest body {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250' viewBox='0 0 100 100'%3E%3Cg fill='hsl(100, 15%25, 90%25)' fill-opacity='0.6'%3E%3Cpath d='M11 0v20H0v10h11v20H0v10h11v20H0v10h11v20H0v10h11zM100 11h-20V0h-10v11h-20V0h-10v11h-20V0h-10v11H0v20h10V11h20v20h10V11h20v20h10V11h20v20h10V11zM31 100V80h10v20h10V80h10v20h10V80h10v20h10V80h10v20h10z'/%3E%3C/g%3E%3C/svg%3E");
   }
 
   .theme-darkest {
