@@ -15,10 +15,10 @@ import { cn } from "@/lib/utils";
 
 const themes = [
     { name: "Default", theme: "default", color: "hsl(135 28% 30%)" },
-    { name: "Ocean", theme: "ocean", color: "hsl(217.2 91.2% 59.8%)" },
-    { name: "Sunset", theme: "sunset", color: "hsl(35.8 91.7% 55.1%)" },
-    { name: "Forest", theme: "forest", color: "hsl(90 45% 45%)" },
-    { name: "Darkest", theme: "darkest", color: "hsl(210 40% 40%)" },
+    { name: "Ocean", theme: "ocean", color: "hsl(205 79% 51%)" },
+    { name: "Sunset", theme: "sunset", color: "hsl(30 96% 54%)" },
+    { name: "Forest", theme: "forest", color: "hsl(130 40% 40%)" },
+    { name: "Darkest", theme: "darkest", color: "hsl(210 40% 50%)" },
 ];
 
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
