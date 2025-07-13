@@ -25,6 +25,8 @@ export const metadata: Metadata = {
   description: "Your guide to mastering new skills.",
 };
 
+const themes = ["light", "dark", "system", "theme-default", "theme-ocean", "theme-sunset", "theme-forest", "theme-matrix"];
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -41,6 +43,7 @@ export default async function RootLayout({
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
+            themes={themes}
           >
             {children}
             <Toaster />

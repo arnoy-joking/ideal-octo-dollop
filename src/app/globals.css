@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  :root, .theme-default {
+  :root,
+  .theme-default {
     --background: 158 25% 95%;
     --foreground: 135 28% 15%;
     --card: 158 25% 99%;
@@ -37,6 +38,7 @@
     --sidebar-border: 140 30% 30%;
     --sidebar-ring: 30 63% 53%;
   }
+
   .dark {
     --background: 135 10% 12%;
     --foreground: 158 25% 95%;

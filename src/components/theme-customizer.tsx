@@ -22,7 +22,7 @@ const themes = [
 ];
 
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
-    const { theme, setTheme } = useTheme();
+    const { theme: activeTheme, setTheme } = useTheme();
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -43,7 +43,7 @@ export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolea
                                 style={{ backgroundColor: t.color }}
                                 onClick={() => setTheme(`theme-${t.theme}`)}
                              >
-                                {theme === `theme-${t.theme}` && <Check className="h-6 w-6 text-primary-foreground" />}
+                                {activeTheme === `theme-${t.theme}` && <Check className="h-6 w-6 text-primary-foreground" />}
                                 <span className="sr-only">{t.name}</span>
                             </Button>
                             <span className="text-xs font-medium">{t.name}</span>
