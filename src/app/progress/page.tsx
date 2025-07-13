@@ -5,18 +5,19 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Compass, User, CheckCircle, Star, History } from 'lucide-react';
+import { Compass, User, CheckCircle, Star, History, BarChart } from 'lucide-react';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getUsersAction } from '@/app/actions/user-actions';
 import { getPublicProgressDataAction } from '@/app/actions/progress-actions';
 import type { User as UserType, Course, Lesson, PublicProgress } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ProgressData = Record<string, PublicProgress>;
 type CourseMap = Record<string, Course>;
 type LessonMap = Record<string, Lesson>;
 
-function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon }: { title: string, lessonIds: string[], lessonMap: LessonMap, courseMap: CourseMap, icon: React.ElementType }) {
+function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon, isScrollable = false, emptyMessage = "No lessons to show for this period." }: { title: string, lessonIds: string[], lessonMap: LessonMap, courseMap: CourseMap, icon: React.ElementType, isScrollable?: boolean, emptyMessage?: string }) {
     const lessonsByCourse: Record<string, Lesson[]> = {};
     
     lessonIds.forEach(lessonId => {
@@ -36,12 +37,12 @@ function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon }: { 
         return (
              <div className="flex items-center gap-4 text-muted-foreground p-4">
                 <Icon className="h-5 w-5" />
-                <span>No lessons to show for this period.</span>
+                <span>{emptyMessage}</span>
             </div>
         )
     }
 
-    return (
+    const content = (
         <div className="space-y-4">
              {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
                 <Card key={courseId}>
@@ -63,6 +64,12 @@ function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon }: { 
             ))}
         </div>
     );
+
+    if (isScrollable) {
+        return <ScrollArea className="h-72 pr-4">{content}</ScrollArea>
+    }
+
+    return content;
 }
 
 
@@ -133,7 +140,7 @@ export default function ProgressPage() {
                     ) : (
                         <Accordion type="multiple" defaultValue={users.map(u => u.id)} className="w-full space-y-4">
                             {users.map(user => {
-                                const userProgress = progress[user.id] || { today: [], all: [] };
+                                const userProgress = progress[user.id] || { today: [], recent: [], all: [] };
                                 const completedCount = userProgress.all.length;
                                 const percentage = allLessonsCount > 0 ? Math.round((completedCount / allLessonsCount) * 100) : 0;
                                 
@@ -165,6 +172,22 @@ export default function ProgressPage() {
                                                     lessonMap={lessonMap}
                                                     courseMap={courseMap}
                                                     icon={Star}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
+                                                    <BarChart className="text-blue-500" />
+                                                    Recent Activity (Last 3 Days)
+                                                </h3>
+                                                <ProgressList 
+                                                    title="Recent Activity"
+                                                    lessonIds={userProgress.recent}
+                                                    lessonMap={lessonMap}
+                                                    courseMap={courseMap}
+                                                    icon={BarChart}
+                                                    isScrollable={true}
+                                                    emptyMessage="No lessons watched in the last 3 days."
                                                 />
                                             </div>
 

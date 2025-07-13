@@ -43,5 +43,6 @@ export interface ProgressRecord {
 
 export interface PublicProgress {
     today: string[];
+    recent: string[];
     all: string[];
 }

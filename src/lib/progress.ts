@@ -90,6 +90,11 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
     today.setHours(0, 0, 0, 0);
     const startOfToday = Timestamp.fromDate(today);
 
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(today.getDate() - 2); // -2 to include today, yesterday, and the day before
+    threeDaysAgo.setHours(0, 0, 0, 0);
+    const startOfThreeDaysAgo = Timestamp.fromDate(threeDaysAgo);
+
     const q = query(progressCollection, where("completed", "==", true));
     const snapshot = await getDocs(q);
 
@@ -100,13 +105,16 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
         const { userId, lessonId, completedAt } = data;
 
         if (!allProgress[userId]) {
-            allProgress[userId] = { today: [], all: [] };
+            allProgress[userId] = { today: [], recent: [], all: [] };
         }
         
         allProgress[userId].all.push(lessonId);
 
         if (completedAt && completedAt >= startOfToday) {
             allProgress[userId].today.push(lessonId);
+        }
+        if (completedAt && completedAt >= startOfThreeDaysAgo) {
+            allProgress[userId].recent.push(lessonId);
         }
     });
 
