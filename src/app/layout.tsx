@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   description: "Your guide to mastering new skills.",
 };
 
-const themes = ["light", "dark", "system", "theme-default", "theme-ocean", "theme-sunset", "theme-forest", "theme-matrix"];
+const themes = ["light", "dark", "system", "theme-default", "theme-ocean", "theme-sunset", "theme-forest", "theme-darkest"];
 
 export default async function RootLayout({
   children,

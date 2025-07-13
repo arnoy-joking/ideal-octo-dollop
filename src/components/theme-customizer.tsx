@@ -18,7 +18,7 @@ const themes = [
     { name: "Ocean", theme: "ocean", color: "hsl(217.2 91.2% 59.8%)" },
     { name: "Sunset", theme: "sunset", color: "hsl(35.8 91.7% 55.1%)" },
     { name: "Forest", theme: "forest", color: "hsl(90 45% 45%)" },
-    { name: "Matrix", theme: "matrix", color: "hsl(120 90% 50%)" },
+    { name: "Darkest", theme: "darkest", color: "hsl(210 40% 40%)" },
 ];
 
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
