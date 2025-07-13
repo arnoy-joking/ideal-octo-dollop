@@ -34,7 +34,7 @@ const formSchema = z.object({
   'theme-ocean': themeSettingSchema,
   'theme-sunset': themeSettingSchema,
   'theme-forest': themeSettingSchema,
-  'theme-darkest': themeSettingAwaited,
+  'theme-darkest': themeSettingSchema,
 });
 
 type FormData = z.infer<typeof formSchema>;
