@@ -22,30 +22,30 @@ export interface SyllabusSubject {
 
 export const syllabus: SyllabusSubject[] = [
     {
-        subject: "বাংলা (Bangla)",
+        subject: "বাংলা",
         papers: [
             {
-                name: "বাংলা ১ম পত্র (Bangla 1st Paper)",
+                name: "বাংলা ১ম পত্র",
                 sections: [
                     {
-                        title: "গদ্য (Prose)",
+                        title: "গদ্য",
                         chapters: [
                             { id: "b1_prose_1", name: "বাঙ্‌গালার নব্য লেখকদিগের প্রতি নিবেদন" },
                             { id: "b1_prose_2", name: "অপরিচিতা" },
                             { id: "b1_prose_3", name: "সাহিত্যে খেলা" },
-                            { id: "b1_prose_4", name: "বিলাস" },
+                            { id: "b1_prose_4", name: "বিলাসী" },
                             { id: "b1_prose_5", name: "অর্ধাঙ্গী" },
-                            { id: "b1_prose_6", name: "শ্রদ্ধের গান" },
-                            { id: "b1_prose_7", name: "জীবন ও স্বপ্ন" },
+                            { id: "b1_prose_6", name: "যৌবনের গান" },
+                            { id: "b1_prose_7", name: "জীবন ও বৃক্ষ" },
                             { id: "b1_prose_8", name: "গন্তব্য কাবুল" },
                             { id: "b1_prose_9", name: "মাসি-পিসি" },
-                            { id: "b1_prose_10", name: "কপালদাস মৃত্যুর প্রেম-কাব্য" },
+                            { id: "b1_prose_10", name: "কপিলদাস মুর্মুর শেষ কাজ" },
                             { id: "b1_prose_11", name: "রেইনকোট" },
                             { id: "b1_prose_12", name: "নেকলেস" },
                         ],
                     },
                     {
-                        title: "পদ্য (Poetry)",
+                        title: "পদ্য",
                         chapters: [
                             { id: "b1_poetry_1", name: "ঋতু বর্ণন" },
                             { id: "b1_poetry_2", name: "বিভীষণের প্রতি মেঘনাদ" },
@@ -68,7 +68,7 @@ export const syllabus: SyllabusSubject[] = [
                 ],
             },
             {
-                name: "বাংলা ২য় পত্র (Bangla 2nd Paper)",
+                name: "বাংলা ২য় পত্র",
                 chapters: [
                     { id: "b2_1", name: "বাংলা উচ্চারণের নিয়ম" },
                     { id: "b2_2", name: "বাংলা বানানের নিয়ম" },
@@ -141,10 +141,10 @@ export const syllabus: SyllabusSubject[] = [
         ],
     },
     {
-        subject: "রসায়ন (Chemistry)",
+        subject: "রসায়ন",
         papers: [
             {
-                name: "রসায়ন প্রথম পত্র (Chemistry First Paper)",
+                name: "রসায়ন প্রথম পত্র",
                 chapters: [
                     { id: "ch1_1", name: "ল্যাবরেটরীর নিরাপদ ব্যবহার" },
                     { id: "ch1_2", name: "গুণগত রসায়ন" },
@@ -154,7 +154,7 @@ export const syllabus: SyllabusSubject[] = [
                 ],
             },
             {
-                name: "রসায়ন দ্বিতীয় পত্র (Chemistry Second Paper)",
+                name: "রসায়ন দ্বিতীয় পত্র",
                 chapters: [
                     { id: "ch2_1", name: "পরিবেশ রসায়ন" },
                     { id: "ch2_2", name: "জৈব রসায়ন" },
@@ -166,10 +166,10 @@ export const syllabus: SyllabusSubject[] = [
         ],
     },
     {
-        subject: "উচ্চতর গণিত (Higher Mathematics)",
+        subject: "উচ্চতর গণিত",
         papers: [
             {
-                name: "উচ্চতর গণিত প্রথম পত্র (Higher Mathematics First Paper)",
+                name: "উচ্চতর গণিত প্রথম পত্র",
                 chapters: [
                     { id: "hm1_1", name: "ম্যাট্রিক্স ও নির্ণায়ক" },
                     { id: "hm1_2", name: "ভেক্টর" },
@@ -184,7 +184,7 @@ export const syllabus: SyllabusSubject[] = [
                 ],
             },
             {
-                name: "উচ্চতর গণিত দ্বিতীয় পত্র (Higher Mathematics Second Paper)",
+                name: "উচ্চতর গণিত দ্বিতীয় পত্র",
                 chapters: [
                     { id: "hm2_1", name: "বাস্তব সংখ্যা ও অসমতা" },
                     { id: "hm2_2", name: "জটিল সংখ্যা" },
@@ -200,10 +200,10 @@ export const syllabus: SyllabusSubject[] = [
         ],
     },
     {
-        subject: "পদার্থবিজ্ঞান (Physics)",
+        subject: "পদার্থবিজ্ঞান",
         papers: [
             {
-                name: "পদার্থবিজ্ঞান প্রথম পত্র (Physics First Paper)",
+                name: "পদার্থবিজ্ঞান প্রথম পত্র",
                 chapters: [
                     { id: "ph1_1", name: "ভৌত জগৎ, পরিমাপ ও উপাত্ত" },
                     { id: "ph1_2", name: "ভৌত আলোকবিজ্ঞান" },
@@ -217,7 +217,7 @@ export const syllabus: SyllabusSubject[] = [
                 ],
             },
             {
-                name: "পদার্থবিজ্ঞান দ্বিতীয় পত্র (Physics Second Paper)",
+                name: "পদার্থবিজ্ঞান দ্বিতীয় পত্র",
                 chapters: [
                     { id: "ph2_1", name: "তাপগতিবিদ্যা" },
                     { id: "ph2_2", name: "স্থির তড়িৎ" },
@@ -237,7 +237,7 @@ export const syllabus: SyllabusSubject[] = [
         ],
     },
     {
-        subject: "তথ্য ও যোগাযোগ প্রযুক্তি (Information and Communication Technology)",
+        subject: "তথ্য ও যোগাযোগ প্রযুক্তি",
         papers: [
             {
                 name: "ICT",
@@ -253,10 +253,10 @@ export const syllabus: SyllabusSubject[] = [
         ],
     },
     {
-        subject: "জীববিজ্ঞান (Biology)",
+        subject: "জীববিজ্ঞান",
         papers: [
             {
-                name: "জীববিজ্ঞান প্রথম পত্র (Biology First Paper)",
+                name: "জীববিজ্ঞান প্রথম পত্র",
                 chapters: [
                     { id: "bio1_1", name: "কোষ ও এর গঠন" },
                     { id: "bio1_2", name: "কোষ বিভাজন" },
@@ -273,7 +273,7 @@ export const syllabus: SyllabusSubject[] = [
                 ],
             },
             {
-                name: "জীববিজ্ঞান দ্বিতীয় পত্র (Biology Second Paper)",
+                name: "জীববিজ্ঞান দ্বিতীয় পত্র",
                 chapters: [
                     { id: "bio2_1", name: "প্রাণীর বিভিন্নতা ও শ্রেণিবিন্যাস" },
                     { id: "bio2_2", name: "প্রাণীর পরিচিতি" },

@@ -110,7 +110,7 @@ export default function SyllabusPage() {
                     </p>
                 </div>
 
-                <Card className="mb-8 sticky top-4 z-10">
+                <Card className="mb-8 z-10">
                      {isDirty && (
                         <div className="p-4 border-b bg-secondary/50 flex justify-between items-center">
                             <p className="text-sm font-medium">You have unsaved changes.</p>
@@ -209,4 +209,3 @@ export default function SyllabusPage() {
         </main>
     );
 }
-
