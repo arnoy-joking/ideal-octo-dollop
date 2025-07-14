@@ -56,7 +56,7 @@ function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No less
                         <ul className="space-y-1">
                             {lessons.map(lesson => (
                                 <li key={lesson.id} className="flex items-center gap-3 text-sm text-muted-foreground ml-2">
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                    <CheckCircle className="h-4 w-4 text-green-700" />
                                     <span>{lesson.title}</span>
                                 </li>
                             ))}

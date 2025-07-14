@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -31,7 +32,7 @@ export function ClassGoalCard({
       </CardHeader>
       <CardContent className="space-y-3">
           <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
-            <CheckCircle2 className="w-6 h-6 text-green-600" />
+            <CheckCircle2 className="w-6 h-6 text-green-700" />
             <div>
               <p className="font-semibold text-lg">{watchedCount}</p>
               <p className="text-sm text-muted-foreground">Classes watched</p>
@@ -46,7 +47,7 @@ export function ClassGoalCard({
           </div>
           {/* Show a success message only if the goal is met and they've watched at least one lesson. */}
           {remaining === 0 && watchedCount > 0 && (
-             <p className="text-sm font-medium text-center text-green-600 pt-2">
+             <p className="text-sm font-medium text-center text-green-700 pt-2">
                 Great job! You've met your daily goal!
              </p>
           )}

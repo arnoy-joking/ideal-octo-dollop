@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -73,7 +74,7 @@ export function LessonList({
                             isActive ? (
                                 <PlayCircle className="w-6 h-6 text-primary" />
                             ) : isWatched ? (
-                                <CheckCircle className="w-6 h-6 text-green-600" />
+                                <CheckCircle className="w-6 h-6 text-green-700" />
                             ) : (
                                 <span className="font-bold text-lg text-muted-foreground w-6 text-center">
                                 {index + 1}
