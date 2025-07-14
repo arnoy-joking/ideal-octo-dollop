@@ -55,3 +55,10 @@ export type ThemeSettings = {
     blur: number;
   };
 };
+
+export interface MonthlyGoal {
+    userId: string;
+    chapters: string[];
+    month: number; // 0-11
+    year: number;
+}

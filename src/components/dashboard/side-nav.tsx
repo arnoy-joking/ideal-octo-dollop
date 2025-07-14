@@ -15,7 +15,7 @@ import {
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, Calculator, BookOpen, ChevronRight } from "lucide-react";
+import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, BookCopy, Target, BookOpen, ChevronRight } from "lucide-react";
 import { AddUserDialog } from "./add-user-dialog";
 import { useUser } from "@/context/user-context";
 import { getUsersAction } from "@/app/actions/user-actions";
@@ -28,7 +28,8 @@ import { cn } from "@/lib/utils";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/chat", label: "AI Calculator", icon: Calculator },
+  { href: "/syllabus", label: "Syllabus", icon: BookCopy },
+  { href: "/monthly-goal", label: "Monthly Goal", icon: Target },
   { href: "/pdf-hub", label: "PDF Hub", icon: FileText },
   { href: "/weekly-routine", label: "Weekly Routine", icon: CalendarDays },
   { href: "/progress", label: "Public Progress", icon: ClipboardList },
@@ -121,22 +122,7 @@ export function SideNav() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={pathname === "/dashboard"}
-              tooltip="Dashboard"
-            >
-              <Link href="/dashboard">
-                <LayoutDashboard />
-                <span>Dashboard</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-
-          <CourseNav />
-
-          {menuItems.slice(1).map((item) => ( // Render other items, skipping dashboard
+          {menuItems.map((item) => (
             <SidebarMenuItem key={item.label}>
               <SidebarMenuButton
                 asChild
@@ -150,18 +136,21 @@ export function SideNav() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
-            <SidebarMenuItem>
-                <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith("/settings")}
-                tooltip="Settings"
-                >
-                <Link href="/settings">
-                    <Settings />
-                    <span>Settings</span>
-                </Link>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
+          
+          <CourseNav />
+          
+          <SidebarMenuItem>
+              <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith("/settings")}
+              tooltip="Settings"
+              >
+              <Link href="/settings">
+                  <Settings />
+                  <span>Settings</span>
+              </Link>
+              </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="p-2 border-t border-sidebar-border">
