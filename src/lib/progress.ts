@@ -1,4 +1,6 @@
 
+'use server';
+
 import { db } from './firebase';
 import { 
     collection, 
@@ -87,54 +89,36 @@ export async function getAllProgress(): Promise<Record<string, Set<string>>> {
 
 
 export async function getPublicProgressData(): Promise<Record<string, PublicProgress>> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const startOfToday = Timestamp.fromDate(today);
-
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 6); // -6 to get today + the previous 6 days
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-    const startOfSevenDaysAgo = Timestamp.fromDate(sevenDaysAgo);
-
-    const q = query(progressCollection, where("completed", "==", true), where("completedAt", ">=", startOfSevenDaysAgo));
+    const q = query(progressCollection, where("completed", "==", true));
     const snapshot = await getDocs(q);
 
     const allProgress: Record<string, PublicProgress> = {};
-    const allWatchedSnapshot = await getDocs(query(progressCollection, where("completed", "==", true)));
-    
-    allWatchedSnapshot.docs.forEach(doc => {
-        const data = doc.data() as ProgressRecord;
-        const { userId, lessonId } = data;
-        if (!allProgress[userId]) {
-            allProgress[userId] = { today: [], recent: [], all: [] };
-        }
-        allProgress[userId].all.push(lessonId);
-    });
 
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
 
     snapshot.docs.forEach(doc => {
         const data = doc.data() as ProgressRecord;
         const { userId, lessonId, completedAt } = data;
 
+        if (!userId) return;
+
         if (!allProgress[userId]) {
             allProgress[userId] = { today: [], recent: [], all: [] };
         }
+
+        allProgress[userId].all.push(lessonId);
+
+        const completedDate = completedAt.toDate();
         
-        // Add to recent list
-        allProgress[userId].recent.push(lessonId);
-        
-        // Add to today list if applicable, but not to recent
-        if (completedAt && completedAt >= startOfToday) {
+        if (completedDate >= today) {
             allProgress[userId].today.push(lessonId);
+        } else if (completedDate >= sevenDaysAgo) {
+            allProgress[userId].recent.push(lessonId);
         }
     });
-
-    // Ensure recent does not include today's lessons for cleaner separation
-    for (const userId in allProgress) {
-        const todaySet = new Set(allProgress[userId].today);
-        allProgress[userId].recent = allProgress[userId].recent.filter(id => !todaySet.has(id));
-    }
-
 
     return allProgress;
 }

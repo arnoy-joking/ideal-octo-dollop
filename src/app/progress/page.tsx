@@ -48,7 +48,7 @@ function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No less
     }
 
     return (
-        <ScrollArea className="h-96 pr-4">
+        <ScrollArea className="h-64 pr-4">
             <div className="space-y-4">
                 {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
                     <div key={courseId} className="space-y-2">
@@ -81,27 +81,31 @@ export default function ProgressPage() {
     useEffect(() => {
         async function loadData() {
             setIsLoading(true);
-            const [fetchedUsers, fetchedCourses, allProgress] = await Promise.all([
-                getUsersAction(), 
-                getCoursesAction(),
-                getPublicProgressDataAction()
-            ]);
-            setUsers(fetchedUsers);
-            setCourses(fetchedCourses);
-            setProgress(allProgress);
+            try {
+                const [fetchedUsers, fetchedCourses, allProgress] = await Promise.all([
+                    getUsersAction(), 
+                    getCoursesAction(),
+                    getPublicProgressDataAction()
+                ]);
+                setUsers(fetchedUsers);
+                setCourses(fetchedCourses);
+                setProgress(allProgress);
 
-            const newCourseMap: CourseMap = {};
-            const newLessonMap: LessonMap = {};
-            fetchedCourses.forEach(course => {
-                newCourseMap[course.id] = course;
-                course.lessons.forEach(lesson => {
-                    newLessonMap[lesson.id] = lesson;
+                const newCourseMap: CourseMap = {};
+                const newLessonMap: LessonMap = {};
+                fetchedCourses.forEach(course => {
+                    newCourseMap[course.id] = course;
+                    course.lessons.forEach(lesson => {
+                        newLessonMap[lesson.id] = lesson;
+                    });
                 });
-            });
-            setCourseMap(newCourseMap);
-            setLessonMap(newLessonMap);
-
-            setIsLoading(false);
+                setCourseMap(newCourseMap);
+                setLessonMap(newLessonMap);
+            } catch (error) {
+                console.error("Failed to load progress data:", error);
+            } finally {
+                setIsLoading(false);
+            }
         }
         loadData();
     }, []);
@@ -132,9 +136,24 @@ export default function ProgressPage() {
 
                     {isLoading ? (
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <Skeleton className="h-96 w-full" />
-                            <Skeleton className="h-96 w-full" />
-                            <Skeleton className="h-96 w-full" />
+                            {[...Array(3)].map((_, i) => (
+                                <Card key={i}>
+                                    <CardHeader className="flex flex-row items-center gap-4">
+                                        <Skeleton className="h-14 w-14 rounded-full" />
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-6 w-32" />
+                                            <Skeleton className="h-4 w-24" />
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="space-y-2">
+                                            <Skeleton className="h-4 w-full" />
+                                            <Skeleton className="h-3 w-20 ml-auto" />
+                                        </div>
+                                        <Skeleton className="h-48 w-full" />
+                                    </CardContent>
+                                </Card>
+                            ))}
                          </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -155,7 +174,7 @@ export default function ProgressPage() {
                                             <CardDescription>Overall Progress</CardDescription>
                                         </div>
                                     </CardHeader>
-                                    <CardContent className="flex-grow">
+                                    <CardContent className="flex-grow flex flex-col">
                                        <div className="space-y-2 mb-6">
                                             <Progress value={percentage} aria-label={`${percentage}% complete`} />
                                             <p className="text-sm text-muted-foreground text-right font-medium">
@@ -163,13 +182,13 @@ export default function ProgressPage() {
                                             </p>
                                        </div>
 
-                                        <Tabs defaultValue="today" className="w-full">
+                                        <Tabs defaultValue="today" className="w-full flex-grow flex flex-col">
                                             <TabsList className="grid w-full grid-cols-3">
                                                 <TabsTrigger value="today"><Star className="mr-2 h-4 w-4" />Today</TabsTrigger>
                                                 <TabsTrigger value="recent"><BarChart className="mr-2 h-4 w-4" />Recent</TabsTrigger>
                                                 <TabsTrigger value="all"><History className="mr-2 h-4 w-4" />All Time</TabsTrigger>
                                             </TabsList>
-                                            <TabsContent value="today" className="pt-4">
+                                            <TabsContent value="today" className="pt-4 flex-grow">
                                                  <ProgressList 
                                                     lessonIds={userProgress.today}
                                                     lessonMap={lessonMap}
@@ -177,15 +196,15 @@ export default function ProgressPage() {
                                                     emptyMessage="No lessons completed today."
                                                 />
                                             </TabsContent>
-                                            <TabsContent value="recent" className="pt-4">
+                                            <TabsContent value="recent" className="pt-4 flex-grow">
                                                  <ProgressList 
                                                     lessonIds={userProgress.recent}
                                                     lessonMap={lessonMap}
                                                     courseMap={courseMap}
-                                                    emptyMessage="No lessons completed in the last 3 days."
+                                                    emptyMessage="No lessons completed in the last 7 days."
                                                 />
                                             </TabsContent>
-                                            <TabsContent value="all" className="pt-4">
+                                            <TabsContent value="all" className="pt-4 flex-grow">
                                                  <ProgressList 
                                                     lessonIds={userProgress.all}
                                                     lessonMap={lessonMap}
