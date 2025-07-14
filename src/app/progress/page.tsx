@@ -212,7 +212,7 @@ export default function ProgressPage() {
                                                     lessonIds={userProgress.recent}
                                                     lessonMap={lessonMap}
                                                     courseMap={courseMap}
-                                                    emptyMessage="No lessons completed in the last 7 days."
+                                                    emptyMessage="No lessons completed in the last 3 days."
                                                 />
                                             </TabsContent>
                                             <TabsContent value="all" className="pt-4 flex-grow">
