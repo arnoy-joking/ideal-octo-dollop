@@ -40,7 +40,7 @@ function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No less
 
     if (Object.keys(lessonsByCourse).length === 0) {
         return (
-             <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 h-48">
+             <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 h-96">
                 <BookOpen className="h-8 w-8" />
                 <p>{emptyMessage}</p>
             </div>
@@ -48,7 +48,7 @@ function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No less
     }
 
     return (
-        <ScrollArea className="h-64 pr-4">
+        <ScrollArea className="h-96 pr-4">
             <div className="space-y-4">
                 {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
                     <div key={courseId} className="space-y-2">
@@ -155,6 +155,17 @@ export default function ProgressPage() {
                                 </Card>
                             ))}
                          </div>
+                    ) : users.length === 0 ? (
+                        <div className="text-center py-10">
+                            <User className="mx-auto h-12 w-12 text-muted-foreground" />
+                            <h3 className="mt-4 text-lg font-semibold">No Users Found</h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Add a profile from the login page to start tracking progress.
+                            </p>
+                            <Button asChild className="mt-4">
+                                <Link href="/login">Go to Login</Link>
+                            </Button>
+                        </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {users.map(user => {

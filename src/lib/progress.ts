@@ -14,7 +14,8 @@ import {
     writeBatch,
     updateDoc
 } from "firebase/firestore";
-import type { Lesson, ProgressRecord, PublicProgress } from './types';
+import type { Lesson, ProgressRecord, PublicProgress, User } from './types';
+import { getUsers } from './users';
 
 const progressCollection = collection(db, 'progress');
 const userActivityCollection = collection(db, 'userActivity');
@@ -89,31 +90,35 @@ export async function getAllProgress(): Promise<Record<string, Set<string>>> {
 
 
 export async function getPublicProgressData(): Promise<Record<string, PublicProgress>> {
+    // 1. Fetch all users first to ensure we have a structure for everyone.
+    const users = await getUsers();
+    const allProgress: Record<string, PublicProgress> = {};
+    users.forEach(user => {
+        allProgress[user.id] = { today: [], recent: [], all: [] };
+    });
+
+    // 2. Fetch all completed lessons in a single query (no complex index needed).
     const q = query(progressCollection, where("completed", "==", true));
     const snapshot = await getDocs(q);
 
-    const allProgress: Record<string, PublicProgress> = {};
-
+    // 3. Process the results in code.
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAgo = new Date(todayStart);
+    sevenDaysAgo.setDate(todayStart.getDate() - 7);
 
     snapshot.docs.forEach(doc => {
         const data = doc.data() as ProgressRecord;
         const { userId, lessonId, completedAt } = data;
 
-        if (!userId) return;
-
-        if (!allProgress[userId]) {
-            allProgress[userId] = { today: [], recent: [], all: [] };
-        }
+        // Skip if user doesn't exist or data is malformed
+        if (!userId || !allProgress[userId] || !completedAt) return;
 
         allProgress[userId].all.push(lessonId);
 
         const completedDate = completedAt.toDate();
         
-        if (completedDate >= today) {
+        if (completedDate >= todayStart) {
             allProgress[userId].today.push(lessonId);
         } else if (completedDate >= sevenDaysAgo) {
             allProgress[userId].recent.push(lessonId);
