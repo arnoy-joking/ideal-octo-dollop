@@ -98,21 +98,21 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
     });
 
     // 2. Fetch all completed lessons in a single query (no complex index needed).
-    const q = query(progressCollection, where("completed", "==", true));
+    const q = query(progressCollection);
     const snapshot = await getDocs(q);
 
     // 3. Process the results in code.
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const sevenDaysAgo = new Date(todayStart);
-    sevenDaysAgo.setDate(todayStart.getDate() - 7);
+    const threeDaysAgo = new Date(todayStart);
+    threeDaysAgo.setDate(todayStart.getDate() - 3);
 
     snapshot.docs.forEach(doc => {
         const data = doc.data() as ProgressRecord;
-        const { userId, lessonId, completedAt } = data;
+        const { userId, lessonId, completedAt, completed } = data;
 
-        // Skip if user doesn't exist or data is malformed
-        if (!userId || !allProgress[userId] || !completedAt) return;
+        // Skip if not completed, user doesn't exist, or data is malformed
+        if (!completed || !userId || !allProgress[userId] || !completedAt) return;
 
         allProgress[userId].all.push(lessonId);
 
@@ -120,7 +120,7 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
         
         if (completedDate >= todayStart) {
             allProgress[userId].today.push(lessonId);
-        } else if (completedDate >= sevenDaysAgo) {
+        } else if (completedDate >= threeDaysAgo) {
             allProgress[userId].recent.push(lessonId);
         }
     });
