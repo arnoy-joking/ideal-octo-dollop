@@ -14,17 +14,18 @@ import { getThemeSettingsAction } from '@/app/actions/theme-actions';
 function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
   if (!settings) return null;
 
-  const generateThemeStyles = (themeName: string, themeConfig: ThemeSettings[string]) => {
+  const generateThemeStyles = (themeName: string, themeConfig: ThemeSettings[keyof ThemeSettings]) => {
     if (!themeConfig || !themeConfig.imageUrl) return '';
+    // CSS variables are defined here and will be used in globals.css
     return `
-      html.${themeName} body {
+      html.${themeName} {
         --bg-image-url: url('${themeConfig.imageUrl}');
         --bg-opacity: ${themeConfig.opacity / 100};
         --bg-blur: blur(${themeConfig.blur}px);
       }
     `;
   };
-
+  
   const styles = Object.entries(settings)
     .map(([themeName, themeConfig]) => generateThemeStyles(themeName, themeConfig))
     .join('\n');
@@ -83,5 +84,3 @@ export default function AppLayout({
     </>
   );
 }
-
-    
