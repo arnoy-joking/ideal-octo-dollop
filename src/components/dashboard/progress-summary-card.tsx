@@ -11,11 +11,13 @@ interface ClassGoalCardProps {
   watchedCount: number;
 }
 
+// Set a daily goal for the number of lessons a user should watch.
 const DAILY_GOAL = 4;
 
 export function ClassGoalCard({
   watchedCount,
 }: ClassGoalCardProps) {
+  // Calculate remaining lessons, ensuring it doesn't go below zero.
   const remaining = Math.max(0, DAILY_GOAL - watchedCount);
 
   return (
@@ -42,6 +44,7 @@ export function ClassGoalCard({
               <p className="text-sm text-muted-foreground">Classes left to watch</p>
             </div>
           </div>
+          {/* Show a success message only if the goal is met and they've watched at least one lesson. */}
           {remaining === 0 && watchedCount > 0 && (
              <p className="text-sm font-medium text-center text-green-600 pt-2">
                 Great job! You've met your daily goal!

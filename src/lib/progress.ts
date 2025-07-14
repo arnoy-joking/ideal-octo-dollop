@@ -1,3 +1,4 @@
+
 import { db } from './firebase';
 import { 
     collection, 
@@ -90,15 +91,26 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
     today.setHours(0, 0, 0, 0);
     const startOfToday = Timestamp.fromDate(today);
 
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(today.getDate() - 2); // -2 to include today, yesterday, and the day before
-    threeDaysAgo.setHours(0, 0, 0, 0);
-    const startOfThreeDaysAgo = Timestamp.fromDate(threeDaysAgo);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6); // -6 to get today + the previous 6 days
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const startOfSevenDaysAgo = Timestamp.fromDate(sevenDaysAgo);
 
-    const q = query(progressCollection, where("completed", "==", true));
+    const q = query(progressCollection, where("completed", "==", true), where("completedAt", ">=", startOfSevenDaysAgo));
     const snapshot = await getDocs(q);
 
     const allProgress: Record<string, PublicProgress> = {};
+    const allWatchedSnapshot = await getDocs(query(progressCollection, where("completed", "==", true)));
+    
+    allWatchedSnapshot.docs.forEach(doc => {
+        const data = doc.data() as ProgressRecord;
+        const { userId, lessonId } = data;
+        if (!allProgress[userId]) {
+            allProgress[userId] = { today: [], recent: [], all: [] };
+        }
+        allProgress[userId].all.push(lessonId);
+    });
+
 
     snapshot.docs.forEach(doc => {
         const data = doc.data() as ProgressRecord;
@@ -108,15 +120,21 @@ export async function getPublicProgressData(): Promise<Record<string, PublicProg
             allProgress[userId] = { today: [], recent: [], all: [] };
         }
         
-        allProgress[userId].all.push(lessonId);
-
+        // Add to recent list
+        allProgress[userId].recent.push(lessonId);
+        
+        // Add to today list if applicable, but not to recent
         if (completedAt && completedAt >= startOfToday) {
             allProgress[userId].today.push(lessonId);
         }
-        if (completedAt && completedAt >= startOfThreeDaysAgo) {
-            allProgress[userId].recent.push(lessonId);
-        }
     });
+
+    // Ensure recent does not include today's lessons for cleaner separation
+    for (const userId in allProgress) {
+        const todaySet = new Set(allProgress[userId].today);
+        allProgress[userId].recent = allProgress[userId].recent.filter(id => !todaySet.has(id));
+    }
+
 
     return allProgress;
 }
@@ -187,8 +205,12 @@ export async function getLessonsWatchedTodayCount(userId: string): Promise<numbe
         );
         const snapshot = await getDocs(q);
         return snapshot.size;
-    } catch (error) {
-        console.error("Error fetching today's watched lessons count, you might need to create a Firestore index:", error);
+    } catch (error: any) {
+        if (error.code === 'failed-precondition') {
+            console.error("Firestore Error: This query requires a composite index. Please create it in your Firebase console. The error message should contain a link to create it automatically.", error);
+        } else {
+            console.error("Error fetching today's watched lessons count:", error);
+        }
         return 0;
     }
 }
