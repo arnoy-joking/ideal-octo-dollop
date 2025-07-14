@@ -1,23 +1,28 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Compass, User, CheckCircle, Star, History, BarChart } from 'lucide-react';
+import { Compass, User, CheckCircle, Star, History, BarChart, BookOpen } from 'lucide-react';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getUsersAction } from '@/app/actions/user-actions';
 import { getPublicProgressDataAction } from '@/app/actions/progress-actions';
 import type { User as UserType, Course, Lesson, PublicProgress } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 
 type ProgressData = Record<string, PublicProgress>;
 type CourseMap = Record<string, Course>;
 type LessonMap = Record<string, Lesson>;
 
-function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon, isScrollable = false, emptyMessage = "No lessons to show for this period." }: { title: string, lessonIds: string[], lessonMap: LessonMap, courseMap: CourseMap, icon: React.ElementType, isScrollable?: boolean, emptyMessage?: string }) {
+function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No lessons to show." }: { lessonIds: string[], lessonMap: LessonMap, courseMap: CourseMap, emptyMessage?: string }) {
     const lessonsByCourse: Record<string, Lesson[]> = {};
     
     lessonIds.forEach(lessonId => {
@@ -35,41 +40,32 @@ function ProgressList({ title, lessonIds, lessonMap, courseMap, icon: Icon, isSc
 
     if (Object.keys(lessonsByCourse).length === 0) {
         return (
-             <div className="flex items-center gap-4 text-muted-foreground p-4">
-                <Icon className="h-5 w-5" />
-                <span>{emptyMessage}</span>
+             <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 h-48">
+                <BookOpen className="h-8 w-8" />
+                <p>{emptyMessage}</p>
             </div>
         )
     }
 
-    const content = (
-        <div className="space-y-4">
-             {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
-                <Card key={courseId}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base">{courseMap[courseId]?.title}</CardTitle>
-                        <CardDescription>{lessons.length} lesson{lessons.length > 1 ? 's' : ''}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+    return (
+        <ScrollArea className="h-64 pr-4">
+            <div className="space-y-4">
+                {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
+                    <div key={courseId} className="space-y-2">
+                        <h4 className="font-semibold">{courseMap[courseId]?.title}</h4>
+                        <ul className="space-y-1">
                             {lessons.map(lesson => (
-                                <li key={lesson.id} className="flex items-center gap-2">
+                                <li key={lesson.id} className="flex items-center gap-3 text-sm text-muted-foreground ml-2">
                                     <CheckCircle className="h-4 w-4 text-green-500" />
                                     <span>{lesson.title}</span>
                                 </li>
                             ))}
                         </ul>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
+                    </div>
+                ))}
+            </div>
+        </ScrollArea>
     );
-
-    if (isScrollable) {
-        return <ScrollArea className="h-72 pr-4">{content}</ScrollArea>
-    }
-
-    return content;
 }
 
 
@@ -126,97 +122,82 @@ export default function ProgressPage() {
                 </nav>
             </header>
             <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                <div className="max-w-4xl mx-auto">
-                    <div className="mb-8">
+                <div className="max-w-6xl mx-auto">
+                    <div className="mb-8 text-center">
                         <h1 className="text-4xl font-headline font-bold text-primary">Learner Progress</h1>
-                        <p className="text-muted-foreground mt-2">A public overview of everyone's learning journey.</p>
+                        <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+                            A public overview of everyone's learning journey. See who's making strides and get inspired!
+                        </p>
                     </div>
 
                     {isLoading ? (
-                         <div className="space-y-4">
-                            <Skeleton className="h-24 w-full" />
-                            <Skeleton className="h-24 w-full" />
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <Skeleton className="h-96 w-full" />
+                            <Skeleton className="h-96 w-full" />
+                            <Skeleton className="h-96 w-full" />
                          </div>
                     ) : (
-                        <Accordion type="multiple" defaultValue={users.map(u => u.id)} className="w-full space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {users.map(user => {
                                 const userProgress = progress[user.id] || { today: [], recent: [], all: [] };
                                 const completedCount = userProgress.all.length;
                                 const percentage = allLessonsCount > 0 ? Math.round((completedCount / allLessonsCount) * 100) : 0;
                                 
                                 return (
-                                <Card key={user.id} className="overflow-hidden">
-                                <AccordionItem value={user.id} className="border-b-0">
-                                    <AccordionTrigger className="p-6 hover:no-underline hover:bg-muted/50">
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 w-full pr-4 text-left">
-                                            <div className="flex items-center gap-3 flex-1">
-                                                <User className="h-6 w-6 text-primary" />
-                                                <span className="font-semibold text-lg">{user.name}</span>
-                                            </div>
-                                            <div className="text-left sm:text-right w-full sm:w-auto">
-                                                <div className="font-bold">{percentage}% complete</div>
-                                                <div className="text-sm text-muted-foreground">{completedCount} / {allLessonsCount} lessons</div>
-                                            </div>
+                                <Card key={user.id} className="flex flex-col">
+                                    <CardHeader className="flex flex-row items-center gap-4">
+                                        <Avatar className="h-14 w-14 border-2 border-primary">
+                                            <AvatarImage src={user.avatar} alt={user.name} />
+                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <CardTitle>{user.name}</CardTitle>
+                                            <CardDescription>Overall Progress</CardDescription>
                                         </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="p-6 pt-0">
-                                        <div className="space-y-6">
-                                            <div>
-                                                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                                                    <Star className="text-amber-500" />
-                                                    Today's Progress
-                                                </h3>
-                                                <ProgressList 
-                                                    title="Today's Progress"
+                                    </CardHeader>
+                                    <CardContent className="flex-grow">
+                                       <div className="space-y-2 mb-6">
+                                            <Progress value={percentage} aria-label={`${percentage}% complete`} />
+                                            <p className="text-sm text-muted-foreground text-right font-medium">
+                                                {completedCount} / {allLessonsCount} lessons ({percentage}%)
+                                            </p>
+                                       </div>
+
+                                        <Tabs defaultValue="today" className="w-full">
+                                            <TabsList className="grid w-full grid-cols-3">
+                                                <TabsTrigger value="today"><Star className="mr-2 h-4 w-4" />Today</TabsTrigger>
+                                                <TabsTrigger value="recent"><BarChart className="mr-2 h-4 w-4" />Recent</TabsTrigger>
+                                                <TabsTrigger value="all"><History className="mr-2 h-4 w-4" />All Time</TabsTrigger>
+                                            </TabsList>
+                                            <TabsContent value="today" className="pt-4">
+                                                 <ProgressList 
                                                     lessonIds={userProgress.today}
                                                     lessonMap={lessonMap}
                                                     courseMap={courseMap}
-                                                    icon={Star}
+                                                    emptyMessage="No lessons completed today."
                                                 />
-                                            </div>
-
-                                            <div>
-                                                <h3 className="text-lg font-semibold flex items-center gap-2 mb-4">
-                                                    <BarChart className="text-blue-500" />
-                                                    Recent Activity (Last 3 Days)
-                                                </h3>
-                                                <ProgressList 
-                                                    title="Recent Activity"
+                                            </TabsContent>
+                                            <TabsContent value="recent" className="pt-4">
+                                                 <ProgressList 
                                                     lessonIds={userProgress.recent}
                                                     lessonMap={lessonMap}
                                                     courseMap={courseMap}
-                                                    icon={BarChart}
-                                                    isScrollable={true}
-                                                    emptyMessage="No lessons watched in the last 3 days."
+                                                    emptyMessage="No lessons completed in the last 3 days."
                                                 />
-                                            </div>
-
-                                            <Accordion type="single" collapsible className="w-full">
-                                                <AccordionItem value="all-time">
-                                                    <AccordionTrigger>
-                                                        <h3 className="text-lg font-semibold flex items-center gap-2">
-                                                            <History />
-                                                            All-Time Progress
-                                                        </h3>
-                                                    </AccordionTrigger>
-                                                    <AccordionContent className="pt-4">
-                                                         <ProgressList 
-                                                            title="All-Time Progress"
-                                                            lessonIds={userProgress.all}
-                                                            lessonMap={lessonMap}
-                                                            courseMap={courseMap}
-                                                            icon={History}
-                                                        />
-                                                    </AccordionContent>
-                                                </AccordionItem>
-                                            </Accordion>
-
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
+                                            </TabsContent>
+                                            <TabsContent value="all" className="pt-4">
+                                                 <ProgressList 
+                                                    lessonIds={userProgress.all}
+                                                    lessonMap={lessonMap}
+                                                    courseMap={courseMap}
+                                                    emptyMessage="No lessons completed yet."
+                                                />
+                                            </TabsContent>
+                                        </Tabs>
+                                    </CardContent>
                                 </Card>
                             )})}
-                        </Accordion>
+                        </div>
                     )}
                 </div>
             </main>
