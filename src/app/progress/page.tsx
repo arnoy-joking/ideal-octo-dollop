@@ -48,7 +48,7 @@ function ProgressList({ lessonIds, lessonMap, courseMap, emptyMessage = "No less
     }
 
     return (
-        <ScrollArea className="h-64 pr-4">
+        <ScrollArea className="h-96 pr-4">
             <div className="space-y-4">
                 {Object.entries(lessonsByCourse).map(([courseId, lessons]) => (
                     <div key={courseId} className="space-y-2">
