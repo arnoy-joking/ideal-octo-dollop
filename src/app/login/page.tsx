@@ -17,7 +17,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Compass, UserPlus, Loader2, Trash2 } from 'lucide-react';
 import { AddUserDialog } from '@/components/dashboard/add-user-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import {
     AlertDialog,
@@ -32,27 +31,25 @@ import {
   } from "@/components/ui/alert-dialog"
 
 export default function LoginPage() {
-    const { setCurrentUser, currentUser } = useUser();
+    const { setCurrentUser, currentUser, users, setUsers, isInitialLoading } = useUser();
     const router = useRouter();
-    const [users, setUsers] = useState<User[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
     const { toast } = useToast();
 
     const fetchUsers = async () => {
-        setIsLoading(true);
         const fetchedUsers = await getUsersAction();
         setUsers(fetchedUsers);
-        setIsLoading(false);
     };
 
     useEffect(() => {
-        if (currentUser) {
-            router.push('/dashboard');
-        } else {
-            fetchUsers();
+        if (!isInitialLoading) {
+            if (currentUser) {
+                router.push('/dashboard');
+            } else {
+                fetchUsers();
+            }
         }
-    }, [currentUser, router]);
+    }, [currentUser, isInitialLoading, router]);
 
     const handleSelectUser = (user: User) => {
         setCurrentUser(user);
@@ -75,7 +72,7 @@ export default function LoginPage() {
         setIsDeleting(null);
     };
 
-    if (isLoading || currentUser) {
+    if (isInitialLoading || currentUser) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-background p-4">
                  <Loader2 className="h-12 w-12 animate-spin text-primary" />

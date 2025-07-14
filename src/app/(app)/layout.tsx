@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Header } from "@/components/dashboard/header";
 import { SideNav } from "@/components/dashboard/side-nav";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
@@ -38,20 +38,20 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { currentUser, isLoading } = useUser();
+  const { currentUser, isInitialLoading } = useUser();
   const router = useRouter();
   const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
 
   useEffect(() => {
-    if (!isLoading && !currentUser) {
+    if (!isInitialLoading && !currentUser) {
       router.push('/login');
     }
     if (currentUser) {
       getThemeSettingsAction(currentUser.id).then(setThemeSettings);
     }
-  }, [currentUser, isLoading, router]);
+  }, [currentUser, isInitialLoading, router]);
   
-  if (isLoading || !currentUser) {
+  if (isInitialLoading || !currentUser) {
     return (
       <div className="flex min-h-screen w-full bg-background">
           <div className="hidden md:block border-r w-16 md:w-64 bg-sidebar">
@@ -76,9 +76,7 @@ export default function AppLayout({
         </Sidebar>
         <SidebarInset>
           <Header />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 bg-transparent">
-            {children}
-          </main>
+          {children}
         </SidebarInset>
       </SidebarProvider>
     </>

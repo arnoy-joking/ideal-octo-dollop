@@ -7,7 +7,7 @@ interface UserContextType {
     setCurrentUser: (user: User | null) => void;
     users: User[];
     setUsers: React.Dispatch<React.SetStateAction<User[]>>;
-    isLoading: boolean;
+    isInitialLoading: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -15,27 +15,22 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children, initialUsers }: { children: ReactNode; initialUsers: User[] }) {
     const [users, setUsers] = useState<User[]>(initialUsers);
     const [currentUser, setCurrentUserInternal] = useState<User | null>(null);
-    const [isMounted, setIsMounted] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(true);
 
     useEffect(() => {
-      setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        if (isMounted) {
-            try {
-                const lastUserId = localStorage.getItem('currentUser');
-                if (lastUserId) {
-                    const user = users.find(u => u.id === lastUserId);
-                    setCurrentUserInternal(user || null);
-                } else {
-                    setCurrentUserInternal(null);
-                }
-            } catch (error) {
-                setCurrentUserInternal(null)
+        try {
+            const lastUserId = localStorage.getItem('currentUser');
+            if (lastUserId) {
+                const user = users.find(u => u.id === lastUserId);
+                setCurrentUserInternal(user || null);
             }
+        } catch (error) {
+            console.warn("Could not access localStorage to get current user.");
+            setCurrentUserInternal(null)
+        } finally {
+            setIsInitialLoading(false);
         }
-    }, [isMounted, users]);
+    }, [users]);
     
     const setCurrentUser = (user: User | null) => {
         setCurrentUserInternal(user);
@@ -46,12 +41,11 @@ export function UserProvider({ children, initialUsers }: { children: ReactNode; 
                 localStorage.removeItem('currentUser');
             }
         } catch (error) {
-             // localStorage is not available
+             console.warn("Could not access localStorage to set current user.");
         }
     };
 
-    const isLoading = !isMounted;
-    const value = { currentUser, setCurrentUser, users, setUsers, isLoading };
+    const value = { currentUser, setCurrentUser, users, setUsers, isInitialLoading };
 
     return (
         <UserContext.Provider value={value}>

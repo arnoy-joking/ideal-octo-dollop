@@ -19,9 +19,9 @@ import { useUser } from "@/context/user-context";
 import { ThemeToggle } from "../theme-toggle";
 
 export function Header() {
-  const { currentUser, users, setCurrentUser, isLoading } = useUser();
+  const { currentUser, users, setCurrentUser, isInitialLoading } = useUser();
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
        <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
           <SidebarTrigger />
