@@ -1,3 +1,4 @@
+
 export interface SyllabusChapter {
     id: string;
     name: string;
@@ -30,7 +31,7 @@ export const syllabus: SyllabusSubject[] = [
                     {
                         title: "গদ্য",
                         chapters: [
-                            { id: "b1_prose_1", name: "বাঙ্‌গালার নব্য লেখকদিগের প্রতি নিবেদন" },
+                            { id: "b1_prose_1", name: "বাঙ্‌গালার نব্য লেখকদিগের প্রতি নিবেদন" },
                             { id: "b1_prose_2", name: "অপরিচিতা" },
                             { id: "b1_prose_3", name: "সাহিত্যে খেলা" },
                             { id: "b1_prose_4", name: "বিলাসী" },
@@ -206,7 +207,7 @@ export const syllabus: SyllabusSubject[] = [
                 name: "পদার্থবিজ্ঞান প্রথম পত্র",
                 chapters: [
                     { id: "ph1_1", name: "ভৌত জগৎ, পরিমাপ ও উপাত্ত" },
-                    { id: "ph1_2", name: "ভৌত আলোকবিজ্ঞান" },
+                    { id: "ph1_2", name: "ভেক্টর" },
                     { id: "ph1_3", name: "নিউটনীয়ান বলবিদ্যা" },
                     { id: "ph1_4", name: "কাজ, শক্তি ও ক্ষমতা" },
                     { id: "ph1_5", name: "মহাকর্ষ ও অভিকর্ষ" },
