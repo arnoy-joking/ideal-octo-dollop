@@ -15,6 +15,8 @@ import { Target, Save, Loader2, ListTodo, CheckCircle2, Edit } from 'lucide-reac
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+
 
 const allChapters: SyllabusChapter[] = syllabus.flatMap(subject => 
     subject.papers.flatMap(paper => 
@@ -120,7 +122,8 @@ export default function MonthlyGoalPage() {
     const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set());
     const [initialCompleted, setInitialCompleted] = useState<Set<string>>(new Set());
     const [monthlyGoalChapters, setMonthlyGoalChapters] = useState<Set<string>>(new Set());
-    
+    const [erasingChapterId, setErasingChapterId] = useState<string | null>(null);
+
     const fetchAllData = async (userId: string) => {
         setIsLoading(true);
         const [completed, goal] = await Promise.all([
@@ -149,17 +152,26 @@ export default function MonthlyGoalPage() {
     const uncompletedChapters = useMemo(() => {
         return allChapters.filter(chapter => !completedChapters.has(chapter.id));
     }, [completedChapters]);
-
-    const handleGoalChapterToggle = (chapterId: string) => {
-        setCompletedChapters(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(chapterId)) {
+    
+    const handleGoalChapterToggle = (chapterId: string, isChecked: boolean) => {
+        if (isChecked) {
+            setErasingChapterId(chapterId); // Trigger animation
+            setTimeout(() => {
+                setCompletedChapters(prev => {
+                    const newSet = new Set(prev);
+                    newSet.add(chapterId);
+                    return newSet;
+                });
+                setErasingChapterId(null);
+            }, 500); // Animation duration
+        } else {
+            // Un-checking just updates state without animation
+            setCompletedChapters(prev => {
+                const newSet = new Set(prev);
                 newSet.delete(chapterId);
-            } else {
-                newSet.add(chapterId);
-            }
-            return newSet;
-        });
+                return newSet;
+            });
+        }
     };
 
     const handleSaveGoal = async (newGoalChapterIds: Set<string>) => {
@@ -232,7 +244,11 @@ export default function MonthlyGoalPage() {
         );
     }
     
-    const chaptersInGoal = Array.from(monthlyGoalChapters).map(id => allChaptersMap.get(id)).filter(Boolean) as SyllabusChapter[];
+    const chaptersInGoal = Array.from(monthlyGoalChapters)
+        .map(id => allChaptersMap.get(id))
+        .filter(Boolean) as SyllabusChapter[];
+
+    const visibleChaptersInGoal = chaptersInGoal.filter(c => !completedChapters.has(c.id));
 
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
@@ -272,15 +288,21 @@ export default function MonthlyGoalPage() {
                                             Click the "Set / Edit Goal" button to select chapters for this month.
                                         </p>
                                     </div>
-                                ) : (
+                                ) : visibleChaptersInGoal.length > 0 ? (
                                     <ScrollArea className="h-[50vh]">
                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                                            {chaptersInGoal.map(chapter => (
-                                                <div key={chapter.id} className="flex items-center space-x-4 p-3 rounded-md hover:bg-muted/50">
+                                            {visibleChaptersInGoal.map(chapter => (
+                                                <div
+                                                    key={chapter.id}
+                                                    className={cn(
+                                                        "flex items-center space-x-4 p-3 rounded-md hover:bg-muted/50 transition-all duration-500",
+                                                        erasingChapterId === chapter.id && "opacity-0 scale-50"
+                                                    )}
+                                                >
                                                     <Checkbox
                                                         id={`goal-check-${chapter.id}`}
                                                         checked={completedChapters.has(chapter.id)}
-                                                        onCheckedChange={() => handleGoalChapterToggle(chapter.id)}
+                                                        onCheckedChange={(isChecked) => handleGoalChapterToggle(chapter.id, !!isChecked)}
                                                         className="h-5 w-5"
                                                     />
                                                     <label
@@ -293,6 +315,14 @@ export default function MonthlyGoalPage() {
                                             ))}
                                         </div>
                                     </ScrollArea>
+                                ) : (
+                                     <div className="text-center py-16">
+                                        <CheckCircle2 className="mx-auto h-12 w-12 text-green-700" />
+                                        <h3 className="mt-4 text-lg font-semibold">Goal Complete!</h3>
+                                        <p className="mt-1 text-sm text-muted-foreground">
+                                            You've finished all the chapters in your goal for this month. Well done!
+                                        </p>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
