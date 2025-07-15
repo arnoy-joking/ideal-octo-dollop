@@ -274,17 +274,18 @@ export default function MonthlyGoalPage() {
                                     </div>
                                 ) : (
                                     <ScrollArea className="h-[50vh]">
-                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                                             {chaptersInGoal.map(chapter => (
-                                                <div key={chapter.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50">
+                                                <div key={chapter.id} className="flex items-center space-x-4 p-3 rounded-md hover:bg-muted/50">
                                                     <Checkbox
                                                         id={`goal-check-${chapter.id}`}
                                                         checked={completedChapters.has(chapter.id)}
                                                         onCheckedChange={() => handleGoalChapterToggle(chapter.id)}
+                                                        className="h-5 w-5"
                                                     />
                                                     <label
                                                         htmlFor={`goal-check-${chapter.id}`}
-                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                        className="text-base font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                                     >
                                                         {chapter.name}
                                                     </label>
@@ -332,3 +333,5 @@ export default function MonthlyGoalPage() {
         </main>
     );
 }
+
+    
