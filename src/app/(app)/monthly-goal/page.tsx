@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import { useUser } from '@/context/user-context';
-import { getCompletedChaptersAction, getMonthlyGoalAction, saveMonthlyGoalAction } from '@/app/actions/syllabus-actions';
+import { getCompletedChaptersAction, getMonthlyGoalAction, saveMonthlyGoalAction, saveCompletedChaptersAction } from '@/app/actions/syllabus-actions';
 import { syllabus, type SyllabusChapter } from '@/lib/data/syllabus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +11,10 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Target, Save, Loader2, ListTodo, CheckCircle2 } from 'lucide-react';
+import { Target, Save, Loader2, ListTodo, CheckCircle2, Edit } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 const allChapters: SyllabusChapter[] = syllabus.flatMap(subject => 
     subject.papers.flatMap(paper => 
@@ -22,40 +23,20 @@ const allChapters: SyllabusChapter[] = syllabus.flatMap(subject =>
 );
 const allChaptersMap = new Map(allChapters.map(c => [c.id, c]));
 
-export default function MonthlyGoalPage() {
-    const { currentUser, isLoading: isUserLoading } = useUser();
-    const { toast } = useToast();
 
-    const [isLoading, setIsLoading] = useState(true);
+function GoalSelectorDialog({ uncompletedChapters, currentGoal, onSave, children }: { uncompletedChapters: SyllabusChapter[], currentGoal: Set<string>, onSave: (newGoal: Set<string>) => Promise<void>, children: React.ReactNode }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [selected, setSelected] = useState(currentGoal);
     const [isSaving, setIsSaving] = useState(false);
-    
-    const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set());
-    const [monthlyGoalChapters, setMonthlyGoalChapters] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (currentUser) {
-            setIsLoading(true);
-            Promise.all([
-                getCompletedChaptersAction(currentUser.id),
-                getMonthlyGoalAction(currentUser.id)
-            ]).then(([completed, goal]) => {
-                setCompletedChapters(new Set(completed));
-                if (goal && goal.month === new Date().getMonth() && goal.year === new Date().getFullYear()) {
-                    setMonthlyGoalChapters(new Set(goal.chapters));
-                } else {
-                    setMonthlyGoalChapters(new Set());
-                }
-                setIsLoading(false);
-            });
+        if (isOpen) {
+            setSelected(currentGoal);
         }
-    }, [currentUser]);
+    }, [isOpen, currentGoal]);
 
-    const uncompletedChapters = useMemo(() => {
-        return allChapters.filter(chapter => !completedChapters.has(chapter.id));
-    }, [completedChapters]);
-
-    const handleGoalToggle = (chapterId: string) => {
-        setMonthlyGoalChapters(prev => {
+    const handleToggle = (chapterId: string) => {
+        setSelected(prev => {
             const newSet = new Set(prev);
             if (newSet.has(chapterId)) {
                 newSet.delete(chapterId);
@@ -66,11 +47,127 @@ export default function MonthlyGoalPage() {
         });
     };
 
-    const handleSaveGoal = async () => {
-        if (!currentUser) return;
+    const handleSaveChanges = async () => {
         setIsSaving(true);
+        await onSave(selected);
+        setIsSaving(false);
+        setIsOpen(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2"><ListTodo />Select Goal Chapters</DialogTitle>
+                    <DialogDescription>Choose from your remaining chapters to set your goal for this month.</DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="h-[60vh] -mx-6 px-6">
+                     <div className="space-y-4">
+                        {syllabus.map(subject => {
+                            const subjectChapters = subject.papers.flatMap(paper => 
+                                (paper.sections?.flatMap(section => section.chapters) || []).concat(paper.other || [], paper.chapters || [])
+                            ).filter(chapter => uncompletedChapters.some(uc => uc.id === chapter.id));
+
+                            if (subjectChapters.length === 0) return null;
+
+                            return (
+                                <div key={subject.subject}>
+                                    <h3 className="font-bold text-lg text-primary">{subject.subject}</h3>
+                                    <Separator className="my-2" />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                                    {subjectChapters.map(chapter => (
+                                        <div key={chapter.id} className="flex items-center space-x-3">
+                                            <Checkbox
+                                                id={`goal-select-${chapter.id}`}
+                                                checked={selected.has(chapter.id)}
+                                                onCheckedChange={() => handleToggle(chapter.id)}
+                                            />
+                                            <label
+                                                htmlFor={`goal-select-${chapter.id}`}
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                            >
+                                                {chapter.name}
+                                            </label>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </ScrollArea>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 animate-spin"/> : <Save className="mr-2" />}
+                        Set Goal
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+export default function MonthlyGoalPage() {
+    const { currentUser, isLoading: isUserLoading } = useUser();
+    const { toast } = useToast();
+
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSavingGoal, setIsSavingGoal] = useState(false);
+    const [isSavingProgress, startProgressTransition] = useTransition();
+    
+    const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set());
+    const [initialCompleted, setInitialCompleted] = useState<Set<string>>(new Set());
+    const [monthlyGoalChapters, setMonthlyGoalChapters] = useState<Set<string>>(new Set());
+    
+    const fetchAllData = async (userId: string) => {
+        setIsLoading(true);
+        const [completed, goal] = await Promise.all([
+            getCompletedChaptersAction(userId),
+            getMonthlyGoalAction(userId)
+        ]);
+        
+        const completedSet = new Set(completed);
+        setCompletedChapters(completedSet);
+        setInitialCompleted(completedSet);
+
+        if (goal && goal.month === new Date().getMonth() && goal.year === new Date().getFullYear()) {
+            setMonthlyGoalChapters(new Set(goal.chapters));
+        } else {
+            setMonthlyGoalChapters(new Set());
+        }
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        if (currentUser) {
+            fetchAllData(currentUser.id);
+        }
+    }, [currentUser]);
+
+    const uncompletedChapters = useMemo(() => {
+        return allChapters.filter(chapter => !completedChapters.has(chapter.id));
+    }, [completedChapters]);
+
+    const handleGoalChapterToggle = (chapterId: string) => {
+        setCompletedChapters(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(chapterId)) {
+                newSet.delete(chapterId);
+            } else {
+                newSet.add(chapterId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSaveGoal = async (newGoalChapterIds: Set<string>) => {
+        if (!currentUser) return;
+        setIsSavingGoal(true);
         try {
-            await saveMonthlyGoalAction(currentUser.id, Array.from(monthlyGoalChapters));
+            await saveMonthlyGoalAction(currentUser.id, Array.from(newGoalChapterIds));
+            setMonthlyGoalChapters(newGoalChapterIds);
             toast({
                 title: 'Goal Saved',
                 description: 'Your monthly goal has been updated.',
@@ -82,11 +179,41 @@ export default function MonthlyGoalPage() {
                 variant: 'destructive',
             });
         } finally {
-            setIsSaving(false);
+            setIsSavingGoal(false);
         }
     };
     
+    const handleSaveProgress = () => {
+        if (!currentUser) return;
+
+        startProgressTransition(async () => {
+            try {
+                await saveCompletedChaptersAction(currentUser.id, Array.from(completedChapters));
+                setInitialCompleted(new Set(completedChapters));
+                toast({
+                    title: 'Progress Saved',
+                    description: 'Your syllabus progress has been updated.',
+                });
+            } catch (error) {
+                toast({
+                    title: 'Error',
+                    description: 'Failed to save your progress.',
+                    variant: 'destructive',
+                });
+            }
+        });
+    };
+
+    const isProgressDirty = useMemo(() => {
+        if (initialCompleted.size !== completedChapters.size) return true;
+        for (const id of initialCompleted) {
+            if (!completedChapters.has(id)) return true;
+        }
+        return false;
+    }, [initialCompleted, completedChapters]);
+
     const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
+    
     const goalProgress = useMemo(() => {
         const goalChapters = Array.from(monthlyGoalChapters);
         if (goalChapters.length === 0) return 0;
@@ -104,6 +231,8 @@ export default function MonthlyGoalPage() {
             </main>
         );
     }
+    
+    const chaptersInGoal = Array.from(monthlyGoalChapters).map(id => allChaptersMap.get(id)).filter(Boolean) as SyllabusChapter[];
 
     return (
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
@@ -114,60 +243,53 @@ export default function MonthlyGoalPage() {
                         Monthly Goal for {currentMonthName}
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Select uncompleted chapters to focus on this month. Your progress is tracked from the main Syllabus page.
+                        Track your monthly focus. Mark chapters as complete and save your progress.
                     </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                     <div className="lg:col-span-2">
                         <Card>
+                            {isProgressDirty && (
+                                <div className="p-4 border-b bg-secondary/50 flex justify-between items-center rounded-t-lg">
+                                    <p className="text-sm font-medium">You have unsaved progress.</p>
+                                    <Button onClick={handleSaveProgress} disabled={isSavingProgress} size="sm">
+                                        {isSavingProgress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                        Save Progress
+                                    </Button>
+                                </div>
+                            )}
                             <CardHeader>
-                                <CardTitle className="flex items-center gap-2"><ListTodo />Select Chapters</CardTitle>
-                                <CardDescription>Choose from your remaining chapters to set your goal.</CardDescription>
+                                <CardTitle className="flex items-center gap-2"><ListTodo />Monthly Goal Checklist</CardTitle>
+                                <CardDescription>Check off chapters as you complete them this month.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                {uncompletedChapters.length === 0 ? (
+                                {chaptersInGoal.length === 0 ? (
                                     <div className="text-center py-16">
-                                        <CheckCircle2 className="mx-auto h-12 w-12 text-green-700" />
-                                        <h3 className="mt-4 text-lg font-semibold">Syllabus Complete!</h3>
+                                        <Target className="mx-auto h-12 w-12 text-muted-foreground" />
+                                        <h3 className="mt-4 text-lg font-semibold">No Goal Set</h3>
                                         <p className="mt-1 text-sm text-muted-foreground">
-                                            You have completed all chapters. Amazing work!
+                                            Click the "Set / Edit Goal" button to select chapters for this month.
                                         </p>
                                     </div>
                                 ) : (
-                                    <ScrollArea className="h-[60vh]">
-                                        <div className="space-y-4 pr-4">
-                                            {syllabus.map(subject => {
-                                                const subjectChapters = subject.papers.flatMap(paper => 
-                                                    (paper.sections?.flatMap(section => section.chapters) || []).concat(paper.other || [], paper.chapters || [])
-                                                ).filter(chapter => !completedChapters.has(chapter.id));
-
-                                                if (subjectChapters.length === 0) return null;
-
-                                                return (
-                                                    <div key={subject.subject}>
-                                                        <h3 className="font-bold text-lg text-primary">{subject.subject}</h3>
-                                                        <Separator className="my-2" />
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                                                        {subjectChapters.map(chapter => (
-                                                            <div key={chapter.id} className="flex items-center space-x-3">
-                                                                <Checkbox
-                                                                    id={`goal-${chapter.id}`}
-                                                                    checked={monthlyGoalChapters.has(chapter.id)}
-                                                                    onCheckedChange={() => handleGoalToggle(chapter.id)}
-                                                                />
-                                                                <label
-                                                                    htmlFor={`goal-${chapter.id}`}
-                                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                                >
-                                                                    {chapter.name}
-                                                                </label>
-                                                            </div>
-                                                        ))}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
+                                    <ScrollArea className="h-[50vh]">
+                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+                                            {chaptersInGoal.map(chapter => (
+                                                <div key={chapter.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50">
+                                                    <Checkbox
+                                                        id={`goal-check-${chapter.id}`}
+                                                        checked={completedChapters.has(chapter.id)}
+                                                        onCheckedChange={() => handleGoalChapterToggle(chapter.id)}
+                                                    />
+                                                    <label
+                                                        htmlFor={`goal-check-${chapter.id}`}
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                    >
+                                                        {chapter.name}
+                                                    </label>
+                                                </div>
+                                            ))}
                                         </div>
                                     </ScrollArea>
                                 )}
@@ -197,10 +319,13 @@ export default function MonthlyGoalPage() {
                                 </div>
                             </CardContent>
                         </Card>
-                        <Button className="w-full" onClick={handleSaveGoal} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Save className="mr-2" />}
-                            Save Monthly Goal
-                        </Button>
+
+                        <GoalSelectorDialog uncompletedChapters={uncompletedChapters} currentGoal={monthlyGoalChapters} onSave={handleSaveGoal}>
+                             <Button className="w-full">
+                                <Edit className="mr-2" />
+                                Set / Edit Goal
+                            </Button>
+                        </GoalSelectorDialog>
                     </div>
                 </div>
             </div>
