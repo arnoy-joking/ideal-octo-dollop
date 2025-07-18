@@ -36,6 +36,7 @@ Instructions:
 5.  If custom instructions are provided, they take high priority.
 6.  The final output MUST be a JSON object where keys are dates in 'YYYY-MM-DD' format and values are arrays of scheduled lessons for that day.
 7.  Ensure every selected lesson is scheduled exactly once. Do not omit any lessons.
+8.  For the output, use the 'id' field from the input lesson as the 'lessonId' in the output object.
 
 User Inputs:
 -   **Start Date**: {{{startDate}}}

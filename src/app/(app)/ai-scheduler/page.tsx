@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { DateRange } from 'react-day-picker';
 import { format, eachDayOfInterval, isToday, parseISO } from 'date-fns';
-import type { Course, Lesson, PublicProgress, GenerateScheduleOutput } from '@/lib/types';
+import type { Course, Lesson, GenerateScheduleOutput } from '@/lib/types';
 
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { generateStudySchedule } from '@/ai/flows/scheduler-flow';
@@ -45,14 +45,14 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
     const toggleLesson = (courseId: string, lessonId: string) => {
         setSelectedLessons(prev => {
             const newSelection = { ...prev };
-            if (!newSelection[courseId]) {
-                newSelection[courseId] = new Set();
-            }
-            if (newSelection[courseId].has(lessonId)) {
-                newSelection[courseId].delete(lessonId);
+            const courseSet = newSelection[courseId] ? new Set(newSelection[courseId]) : new Set<string>();
+            
+            if (courseSet.has(lessonId)) {
+                courseSet.delete(lessonId);
             } else {
-                newSelection[courseId].add(lessonId);
+                courseSet.add(lessonId);
             }
+            newSelection[courseId] = courseSet;
             return newSelection;
         });
     };
