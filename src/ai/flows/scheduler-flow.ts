@@ -9,13 +9,18 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/types';
-import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema } from '@/lib/types';
+import type { GenerateScheduleInput, GenerateScheduleOutput, AiScheduledLesson } from '@/lib/types';
+import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, AiScheduledLessonSchema } from '@/lib/types';
+
+
+const AiScheduleListOutputSchema = z.object({
+    scheduledLessons: z.array(AiScheduledLessonSchema)
+});
 
 const schedulerPrompt = ai.definePrompt({
     name: 'schedulerPrompt',
     input: { schema: GenerateScheduleInputSchema },
-    output: { schema: GenerateScheduleOutputSchema },
+    output: { schema: AiScheduleListOutputSchema },
     prompt: `You are an expert academic scheduler. Your task is to create a realistic, well-paced study schedule for a user based on their selected lessons, timeframe, and personal preferences.
 
 Analyze the user's input carefully:
@@ -29,14 +34,12 @@ Analyze the user's input carefully:
 Your goal is to distribute all the selected lessons across the available days.
 
 Instructions:
-1.  Calculate the total number of days available in the date range.
-2.  Calculate the total number of lessons to schedule.
-3.  Determine an average number of lessons per day. Adjust this based on the 'isLazy' flag.
-4.  Iterate through the available dates and assign lessons. Assign a reasonable time (e.g., '09:00', '14:30', '19:00') for each lesson.
-5.  If custom instructions are provided, they take high priority.
-6.  The final output MUST be a JSON object where keys are dates in 'YYYY-MM-DD' format and values are arrays of scheduled lessons for that day.
-7.  Ensure every selected lesson is scheduled exactly once. Do not omit any lessons.
-8.  For the output, use the 'id' field from the input lesson as the 'lessonId' in the output object.
+1.  For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM 24-hour format).
+2.  The 'date' for each lesson must be within the provided Start and End Date range.
+3.  Distribute the lessons evenly across the available days, respecting the user's 'lazy' preference and custom instructions.
+4.  If custom instructions are provided, they take high priority.
+5.  Ensure every single lesson from the input is present in the final output array. Do not omit any lessons.
+6.  The final output MUST be a JSON object with a single key "scheduledLessons" which is an array of all the scheduled lessons.
 
 User Inputs:
 -   **Start Date**: {{{startDate}}}
@@ -63,7 +66,33 @@ const generateStudyScheduleFlow = ai.defineFlow(
     },
     async (input) => {
         const { output } = await schedulerPrompt(input);
-        return output!;
+
+        if (!output || !output.scheduledLessons) {
+            throw new Error("AI failed to return a valid schedule list.");
+        }
+
+        // Process the flat list from the AI into the structured format the frontend expects.
+        const structuredSchedule: GenerateScheduleOutput = {};
+
+        for (const lesson of output.scheduledLessons) {
+            const date = lesson.date;
+            if (!structuredSchedule[date]) {
+                structuredSchedule[date] = [];
+            }
+            structuredSchedule[date].push({
+                lessonId: lesson.lessonId,
+                courseId: lesson.courseId,
+                time: lesson.time,
+                title: lesson.title,
+            });
+        }
+        
+        // Sort lessons within each day by time
+        for (const date in structuredSchedule) {
+            structuredSchedule[date].sort((a, b) => a.time.localeCompare(b.time));
+        }
+
+        return structuredSchedule;
     }
 );
 

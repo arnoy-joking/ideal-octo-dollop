@@ -65,19 +65,26 @@ export interface MonthlyGoal {
 }
 
 // AI Scheduler Types
-const ScheduledLessonSchema = z.object({
+export const AiScheduledLessonSchema = z.object({
   lessonId: z.string().describe("The unique ID of the lesson."),
   courseId: z.string().describe("The unique ID of the course this lesson belongs to."),
+  date: z.string().describe("The date for the lesson in YYYY-MM-DD format."),
   time: z.string().describe("The scheduled time for the lesson in HH:MM 24-hour format, e.g., '09:00' or '14:30'."),
   title: z.string().describe("The title of the lesson."),
 });
 
-const DailyScheduleSchema = z.array(ScheduledLessonSchema);
+const ScheduledLessonSchema = z.object({
+  lessonId: z.string(),
+  courseId: z.string(),
+  time: z.string(),
+  title: z.string(),
+});
 
 export const GenerateScheduleOutputSchema = z.record(
   z.string().describe("The date in YYYY-MM-DD format."),
-  DailyScheduleSchema
+  z.array(ScheduledLessonSchema)
 ).describe("The full study schedule, with dates as keys.");
+
 
 export const GenerateScheduleInputSchema = z.object({
   lessons: z.array(z.object({ 
@@ -96,3 +103,4 @@ export const GenerateScheduleInputSchema = z.object({
 
 export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
 export type GenerateScheduleOutput = z.infer<typeof GenerateScheduleOutputSchema>;
+export type AiScheduledLesson = z.infer<typeof AiScheduledLessonSchema>;
