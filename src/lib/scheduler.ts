@@ -1,6 +1,6 @@
 import { db } from './firebase';
 import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
-import type { GenerateScheduleOutput } from '@/ai/flows/scheduler-flow';
+import type { GenerateScheduleOutput } from '@/lib/types';
 
 const scheduleCollectionName = 'aiSchedules';
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as schedulerDb from '@/lib/scheduler';
-import type { GenerateScheduleOutput } from '@/ai/flows/scheduler-flow';
+import type { GenerateScheduleOutput } from '@/lib/types';
 
 export async function getScheduleAction(userId: string): Promise<GenerateScheduleOutput | null> {
     return await schedulerDb.getSchedule(userId);

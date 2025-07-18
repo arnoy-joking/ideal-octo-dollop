@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { DateRange } from 'react-day-picker';
 import { format, eachDayOfInterval, isToday, parseISO } from 'date-fns';
-import type { Course, Lesson, PublicProgress } from '@/lib/types';
-import type { GenerateScheduleOutput } from '@/ai/flows/scheduler-flow';
+import type { Course, Lesson, PublicProgress, GenerateScheduleOutput } from '@/lib/types';
 
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { generateStudySchedule } from '@/ai/flows/scheduler-flow';
