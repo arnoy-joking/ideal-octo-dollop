@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useTransition } from 'react';
 import { DateRange } from 'react-day-picker';
-import { format, eachDayOfInterval, isToday, parseISO } from 'date-fns';
+import { format, eachDayOfInterval, isToday, parseISO, parse } from 'date-fns';
 import type { Course, Lesson, GenerateScheduleOutput } from '@/lib/types';
 
 import { getCoursesAction } from '@/app/actions/course-actions';
@@ -293,6 +293,28 @@ export default function AISchedulerPage() {
 
     const courseMap = new Map(courses.map(c => [c.id, c]));
 
+    const formatTime = (timeStr: string) => {
+        try {
+            // Handles both 'HH:mm' and 'h:mm a'
+            const timeFormats = ['HH:mm', 'h:mm a', 'hh:mm a'];
+            let parsedDate;
+            for (const fmt of timeFormats) {
+                const date = parse(timeStr, fmt, new Date());
+                if (!isNaN(date.getTime())) {
+                    parsedDate = date;
+                    break;
+                }
+            }
+
+            if (parsedDate) {
+                return format(parsedDate, 'h:mm a');
+            }
+            return timeStr; // Fallback to original string if parsing fails
+        } catch (error) {
+            return timeStr; // Fallback
+        }
+    };
+
     const renderSchedule = () => {
         if (!schedule || Object.keys(schedule).length === 0) {
             return (
@@ -353,7 +375,7 @@ export default function AISchedulerPage() {
                                                     aria-label={`Mark ${lesson.title} as complete`}
                                                 />
                                                 <div className="flex-1">
-                                                    <p className="font-semibold">{lesson.time}</p>
+                                                    <p className="font-semibold">{formatTime(lesson.time)}</p>
                                                     <p className="text-sm text-muted-foreground">{lesson.title}</p>
                                                     <p className="text-xs text-muted-foreground/80">{courseMap.get(lesson.courseId)?.title}</p>
                                                 </div>

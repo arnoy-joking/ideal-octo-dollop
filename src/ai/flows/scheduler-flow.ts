@@ -37,7 +37,7 @@ Your goal is to distribute all the selected lessons across the available days.
 
 Instructions:
 1.  **PRIORITIZE BALANCE**: The most important rule is to create a well-paced, varied schedule. Mix different subjects. Avoid scheduling too many lessons from the same course on the same day unless the user explicitly asks for it in the custom instructions.
-2.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM 24-hour format).
+2.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM AM/PM 12-hour format, e.g., '09:00 AM', '02:30 PM').
 3.  **USE REASONABLE TIMES**: Schedule lessons with reasonable gaps. Do not schedule lessons back-to-back. There should be at least an hour between study sessions on the same day.
 4.  **RESPECT DATE RANGE**: The 'date' for each lesson must be within the provided Start and End Date range.
 5.  **INCLUDE ALL LESSONS**: Ensure every single lesson from the input is present in the final output array. Do not omit any lessons.

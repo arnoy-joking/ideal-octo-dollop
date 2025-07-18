@@ -69,7 +69,7 @@ export const AiScheduledLessonSchema = z.object({
   lessonId: z.string().describe("The unique ID of the lesson."),
   courseId: z.string().describe("The unique ID of the course this lesson belongs to."),
   date: z.string().describe("The date for the lesson in YYYY-MM-DD format."),
-  time: z.string().describe("The scheduled time for the lesson in HH:MM 24-hour format, e.g., '09:00' or '14:30'."),
+  time: z.string().describe("The scheduled time for the lesson in HH:MM AM/PM 12-hour format, e.g., '09:00 AM' or '02:30 PM'."),
   title: z.string().describe("The title of the lesson."),
 });
 
