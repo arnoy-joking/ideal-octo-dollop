@@ -9,8 +9,9 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import type { GenerateScheduleInput, GenerateScheduleOutput, AiScheduledLesson } from '@/lib/types';
+import type { GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/types';
 import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, AiScheduledLessonSchema } from '@/lib/types';
+import { parse } from 'date-fns';
 
 
 const AiScheduleListOutputSchema = z.object({
