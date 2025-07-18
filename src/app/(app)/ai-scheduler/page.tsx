@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useTransition } from 'react';
+import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
 import { DateRange } from 'react-day-picker';
 import { format, eachDayOfInterval, isToday, parseISO, parse } from 'date-fns';
 import type { Course, Lesson, GenerateScheduleOutput } from '@/lib/types';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { generateStudySchedule } from '@/ai/flows/scheduler-flow';
@@ -25,7 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sparkles, PlusCircle, Loader2, CalendarPlus, Trash2, CheckCircle } from 'lucide-react';
+import { Sparkles, PlusCircle, Loader2, CalendarPlus, Trash2, CheckCircle, FileDown } from 'lucide-react';
 
 type LessonSelection = {
     [courseId: string]: Set<string>;
@@ -226,7 +228,9 @@ export default function AISchedulerPage() {
     const [schedule, setSchedule] = useState<GenerateScheduleOutput | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, startDeleteTransition] = useTransition();
+    const [isDownloading, setIsDownloading] = useState(false);
     const [watchedLessons, setWatchedLessons] = useState<Set<string>>(new Set());
+    const scheduleRef = useRef<HTMLDivElement>(null);
 
     const loadData = useCallback(async (userId: string) => {
         setIsLoading(true);
@@ -291,6 +295,55 @@ export default function AISchedulerPage() {
         }
     };
 
+    const handleDownloadPdf = async () => {
+        if (!scheduleRef.current) return;
+        setIsDownloading(true);
+
+        try {
+            const canvas = await html2canvas(scheduleRef.current, {
+                scale: 2, // Higher scale for better quality
+                backgroundColor: null, // Use transparent background
+                useCORS: true
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: 'a4'
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+            const ratio = imgWidth / imgHeight;
+
+            let finalImgWidth = pdfWidth - 20; // with some margin
+            let finalImgHeight = finalImgWidth / ratio;
+
+            let heightLeft = finalImgHeight;
+            let position = 10; // top margin
+            
+            pdf.addImage(imgData, 'PNG', 10, position, finalImgWidth, finalImgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft > 0) {
+                position = heightLeft - finalImgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 10, position, finalImgWidth, finalImgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            pdf.save('ai-schedule.pdf');
+        } catch (error) {
+            console.error("PDF generation error: ", error);
+            toast({ title: 'Download Failed', description: 'Could not generate the schedule PDF.', variant: 'destructive' });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const courseMap = new Map(courses.map(c => [c.id, c]));
 
     const formatTime = (timeStr: string) => {
@@ -340,13 +393,17 @@ export default function AISchedulerPage() {
         return (
             <div>
                  <div className="flex justify-end gap-2 mb-4">
+                     <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloading}>
+                        {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <FileDown className="mr-2" />}
+                        Download as PDF
+                    </Button>
                     <Button variant="destructive" onClick={handleDeleteSchedule} disabled={isDeleting}>
                         {isDeleting ? <Loader2 className="mr-2 animate-spin" /> : <Trash2 className="mr-2" />}
                         Delete Schedule
                     </Button>
                     <AISchedulerDialog courses={courses} onScheduleGenerated={handleScheduleGenerated} />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div ref={scheduleRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 bg-background p-1">
                     {scheduleDays.map(day => {
                         const dayString = format(day, 'yyyy-MM-dd');
                         const lessonsForDay = schedule[dayString] || [];
