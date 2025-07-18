@@ -37,11 +37,12 @@ Your goal is to distribute all the selected lessons across the available days.
 
 Instructions:
 1.  **PRIORITIZE BALANCE**: The most important rule is to create a well-paced, varied schedule. Mix different subjects. Avoid scheduling too many lessons from the same course on the same day unless the user explicitly asks for it in the custom instructions.
-2.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM AM/PM 12-hour format, e.g., '09:00 AM', '02:30 PM').
-3.  **USE REASONABLE TIMES**: Schedule lessons with reasonable gaps. Do not schedule lessons back-to-back. There should be at least an hour between study sessions on the same day.
-4.  **RESPECT DATE RANGE**: The 'date' for each lesson must be within the provided Start and End Date range.
-5.  **INCLUDE ALL LESSONS**: Ensure every single lesson from the input is present in the final output array. Do not omit any lessons.
-6.  **OUTPUT FORMAT**: The final output MUST be a JSON object with a single key "scheduledLessons" which is an array of all the scheduled lessons.
+2.  **MAINTAIN SEQUENCE**: When you schedule multiple lessons from the same course, you MUST schedule them in the order they are provided in the input. For example, schedule 'Course A - Lesson 1' before 'Course A - Lesson 2'.
+3.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM AM/PM 12-hour format, e.g., '09:00 AM', '02:30 PM').
+4.  **USE REASONABLE TIMES**: Schedule lessons with reasonable gaps. Do not schedule lessons back-to-back. There should be at least an hour between study sessions on the same day.
+5.  **RESPECT DATE RANGE**: The 'date' for each lesson must be within the provided Start and End Date range.
+6.  **INCLUDE ALL LESSONS**: Ensure every single lesson from the input is present in the final output array. Do not omit any lessons.
+7.  **OUTPUT FORMAT**: The final output MUST be a JSON object with a single key "scheduledLessons" which is an array of all the scheduled lessons.
 
 User Inputs:
 -   **Start Date**: {{{startDate}}}
@@ -91,7 +92,11 @@ const generateStudyScheduleFlow = ai.defineFlow(
         
         // Sort lessons within each day by time
         for (const date in structuredSchedule) {
-            structuredSchedule[date].sort((a, b) => a.time.localeCompare(b.time));
+            structuredSchedule[date].sort((a, b) => {
+                const timeA = parse(a.time, 'h:mm a', new Date());
+                const timeB = parse(b.time, 'h:mm a', new Date());
+                return timeA.getTime() - timeB.getTime();
+            });
         }
 
         return structuredSchedule;
