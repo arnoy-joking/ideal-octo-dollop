@@ -120,7 +120,7 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
                             <Card className="max-h-80">
                                 <ScrollArea className="h-80">
                                     <CardContent className="p-4">
-                                        <Accordion type="multiple">
+                                        <Accordion type="multiple" className="w-full">
                                             {courses.map(course => (
                                                 <AccordionItem key={course.id} value={course.id}>
                                                     <AccordionTrigger>{course.title}</AccordionTrigger>
@@ -131,7 +131,7 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
                                                                     <Checkbox
                                                                         id={`lesson-${lesson.id}`}
                                                                         onCheckedChange={() => toggleLesson(course.id, lesson.id)}
-                                                                        checked={selectedLessons[course.id]?.has(lesson.id)}
+                                                                        checked={selectedLessons[course.id]?.has(lesson.id) || false}
                                                                     />
                                                                     <label htmlFor={`lesson-${lesson.id}`} className="text-sm cursor-pointer">{lesson.title}</label>
                                                                 </div>
@@ -220,7 +220,7 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
 }
 
 export default function AISchedulerPage() {
-    const { currentUser, isLoading: isUserLoading } = useUser();
+    const { currentUser, isInitialLoading: isUserLoading } = useUser();
     const { toast } = useToast();
     const [courses, setCourses] = useState<Course[]>([]);
     const [schedule, setSchedule] = useState<GenerateScheduleOutput | null>(null);
@@ -242,10 +242,10 @@ export default function AISchedulerPage() {
     }, []);
 
     useEffect(() => {
-        if (currentUser) {
+        if (currentUser && !isUserLoading) {
             loadData(currentUser.id);
         }
-    }, [currentUser, loadData]);
+    }, [currentUser, isUserLoading, loadData]);
 
     const handleScheduleGenerated = async (newSchedule: GenerateScheduleOutput) => {
         if (!currentUser) return;

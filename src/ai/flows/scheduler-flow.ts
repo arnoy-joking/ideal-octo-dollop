@@ -49,7 +49,7 @@ User Inputs:
 
 -   **Lessons to Schedule**:
 {{#each lessons}}
-    - Lesson ID: {{id}}, Title: "{{title}}", Course: "{{courseTitle}}" (ID: {{courseId}})
+    - Lesson ID: {{this.id}}, Title: "{{this.title}}", Course: "{{this.courseTitle}}" (ID: {{this.courseId}})
 {{/each}}
 `
 });
