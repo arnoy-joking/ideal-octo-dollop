@@ -15,7 +15,7 @@ import {
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, BookCopy, Target, BookOpen, ChevronRight } from "lucide-react";
+import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, BookCopy, Target, BookOpen, ChevronRight, Sparkles } from "lucide-react";
 import { AddUserDialog } from "./add-user-dialog";
 import { useUser } from "@/context/user-context";
 import { getUsersAction } from "@/app/actions/user-actions";
@@ -30,6 +30,7 @@ const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/syllabus", label: "Syllabus", icon: BookCopy },
   { href: "/monthly-goal", label: "Monthly Goal", icon: Target },
+  { href: "/ai-scheduler", label: "AI Scheduler", icon: Sparkles },
   { href: "/pdf-hub", label: "PDF Hub", icon: FileText },
   { href: "/weekly-routine", label: "Weekly Routine", icon: CalendarDays },
   { href: "/progress", label: "Public Progress", icon: ClipboardList },
