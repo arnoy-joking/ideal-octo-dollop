@@ -8,7 +8,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import { getCoursesAction } from '@/app/actions/course-actions';
-import { generateStudySchedule } from '@/ai/flows/scheduler-flow';
+import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/app/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
 
@@ -23,7 +23,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,7 +41,6 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [isLazy, setIsLazy] = useState<"yes" | "no">("no");
     const [prefersMultiple, setPrefersMultiple] = useState<"yes" | "no">("yes");
-    const [customInstructions, setCustomInstructions] = useState('');
 
     const toggleLesson = (courseId: string, lessonId: string) => {
         setSelectedLessons(prev => {
@@ -60,18 +58,18 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
     };
 
     const handleGenerate = async () => {
-        const flatSelectedLessons = Object.entries(selectedLessons).flatMap(([courseId, lessonIds]) => 
-            Array.from(lessonIds).map(lessonId => {
-                const course = courses.find(c => c.id === courseId);
-                const lesson = course?.lessons.find(l => l.id === lessonId);
-                return { 
-                    id: lesson!.id, 
-                    title: lesson!.title,
+        const flatSelectedLessons = Object.entries(selectedLessons).flatMap(([courseId, lessonIds]) => {
+            const course = courses.find(c => c.id === courseId);
+            // Ensure lessons are added in their original order
+            return course!.lessons
+                .filter(l => lessonIds.has(l.id))
+                .map(lesson => ({
+                    id: lesson.id,
+                    title: lesson.title,
                     courseId: course!.id,
                     courseTitle: course!.title
-                };
-            })
-        );
+                }));
+        });
 
         if (flatSelectedLessons.length === 0) {
             toast({ title: 'No lessons selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
@@ -84,20 +82,19 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
 
         setIsGenerating(true);
         try {
-            const result = await generateStudySchedule({
+            const result = generateScheduleAlgorithmically({
                 lessons: flatSelectedLessons,
                 startDate: format(dateRange.from, 'yyyy-MM-dd'),
                 endDate: format(dateRange.to, 'yyyy-MM-dd'),
                 isLazy: isLazy === 'yes',
-                prefersMultipleLessons: prefersMultiple === 'yes',
-                customInstructions: customInstructions,
+                prefersMultipleLessons: prefersMultiple === 'yes'
             });
             onScheduleGenerated(result);
-            toast({ title: 'Schedule Generated!', description: 'Your new AI-powered study schedule is ready.' });
+            toast({ title: 'Schedule Generated!', description: 'Your new study schedule is ready.' });
             setIsOpen(false);
         } catch (error) {
-            console.error("AI Schedule Generation Error: ", error);
-            toast({ title: 'Generation Failed', description: 'The AI could not generate a schedule. Please try again.', variant: 'destructive' });
+            console.error("Schedule Generation Error: ", error);
+            toast({ title: 'Generation Failed', description: 'The scheduler could not generate a schedule. Please check your inputs.', variant: 'destructive' });
         } finally {
             setIsGenerating(false);
         }
@@ -110,8 +107,8 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Create AI-Powered Study Schedule</DialogTitle>
-                    <DialogDescription>Select lessons, a date range, and your preferences. The AI will handle the rest.</DialogDescription>
+                    <DialogTitle>Create Study Schedule</DialogTitle>
+                    <DialogDescription>Select lessons, a date range, and your preferences. A smart schedule will be generated for you.</DialogDescription>
                 </DialogHeader>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto pr-2 -mr-6 pl-6">
@@ -195,15 +192,6 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
                                 </Card>
                             </div>
                         </div>
-                        <div>
-                            <h3 className="font-semibold mb-2">4. Custom Instructions (Optional)</h3>
-                            <Textarea 
-                                placeholder="e.g., I'm busy on weekdays before 6 PM. I want to study math on weekends..."
-                                value={customInstructions}
-                                onChange={(e) => setCustomInstructions(e.target.value)}
-                                rows={4}
-                            />
-                        </div>
                     </div>
                 </div>
 
@@ -267,7 +255,7 @@ export default function AISchedulerPage() {
             try {
                 await deleteScheduleAction(currentUser.id);
                 setSchedule(null);
-                toast({ title: 'Schedule Deleted', description: 'Your AI schedule has been removed.' });
+                toast({ title: 'Schedule Deleted', description: 'Your schedule has been removed.' });
             } catch (error) {
                  toast({ title: 'Error', description: 'Could not delete the schedule.', variant: 'destructive' });
             }
@@ -335,7 +323,7 @@ export default function AISchedulerPage() {
                 heightLeft -= pdfHeight;
             }
 
-            pdf.save('ai-schedule.pdf');
+            pdf.save('study-schedule.pdf');
         } catch (error) {
             console.error("PDF generation error: ", error);
             toast({ title: 'Download Failed', description: 'Could not generate the schedule PDF.', variant: 'destructive' });
@@ -375,7 +363,7 @@ export default function AISchedulerPage() {
                     <CalendarPlus className="mx-auto h-12 w-12 text-muted-foreground" />
                     <h3 className="mt-4 text-lg font-semibold">No Schedule Found</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Create a new AI-powered schedule to get started.
+                        Create a new schedule to get started.
                     </p>
                     <div className="mt-6">
                         <AISchedulerDialog courses={courses} onScheduleGenerated={handleScheduleGenerated} />
@@ -457,7 +445,7 @@ export default function AISchedulerPage() {
                  <div className="mb-8">
                     <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
                         <Sparkles className="w-8 h-8" />
-                        AI Target Scheduler
+                        Study Scheduler
                     </h1>
                     <p className="text-muted-foreground mt-2">
                         Create a dynamic study plan to achieve your learning goals on time.
