@@ -897,7 +897,7 @@ export default function AISchedulerPage() {
                                         <ul className="space-y-4">
                                             {schedule![day].map(lesson => {
                                                 const isWatched = watchedLessons.has(lesson.lessonId);
-                                                const lessonTime = parse(lesson.time, 'h:mm a', new Date());
+                                                const lessonTime = parse(lesson.time, 'hh:mm a', new Date());
 
                                                 return (
                                                     <li key={lesson.lessonId} className="flex items-start gap-4">
@@ -940,5 +940,3 @@ export default function AISchedulerPage() {
         </main>
     );
 }
-
-    
