@@ -286,7 +286,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, parse } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -315,8 +315,8 @@ import Link from 'next/link';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
-    from: z.date(),
-    to: z.date(),
+    from: z.date({ required_error: "A start date is required." }),
+    to: z.date({ required_error: "An end date is required." }),
   }),
   isLazy: z.boolean(),
   prefersMultiple: z.boolean(),
@@ -334,11 +334,17 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
+      dateRange: {
+        from: undefined,
+        to: undefined,
+      },
       isLazy: false,
       prefersMultiple: false,
       customInstructions: '',
     },
   });
+  
+  const dateRange = form.watch('dateRange');
 
   const toggleLesson = (course: Course, lesson: Lesson) => {
     setSelectedLessons(prev => {
@@ -365,6 +371,18 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         return newSelected;
     });
   };
+  
+  const toggleCourse = (course: Course, isChecked: boolean) => {
+    setSelectedLessons(prev => {
+      const newSelected = { ...prev };
+      if (isChecked) {
+        newSelected[course.id] = [...course.lessons]; // Add all lessons
+      } else {
+        delete newSelected[course.id]; // Remove all lessons
+      }
+      return newSelected;
+    });
+  };
 
   const flatSelectedLessons = useMemo(() => {
     return Object.values(selectedLessons).flat();
@@ -375,15 +393,11 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
       return;
     }
-    if (!data.dateRange?.from || !data.dateRange?.to) {
-        toast({ title: 'Date Range Required', description: 'Please select a start and end date for your schedule.', variant: 'destructive' });
-        return;
-    }
     
     setIsGenerating(true);
     try {
       const result = await generateStudySchedule({
-        lessons: flatSelectedLessons,
+        lessons: flatSelectedLessons.map(l => ({ ...l, courseId: courses.find(c => c.lessons.some(le => le.id === l.id))?.id })),
         startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
         endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
         isLazy: data.isLazy,
@@ -427,27 +441,41 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Select Lessons</h3>
                 <Accordion type="multiple" className="w-full">
-                    {courses.map(course => (
-                        <AccordionItem value={course.id} key={course.id}>
-                            <AccordionTrigger>{course.title}</AccordionTrigger>
-                            <AccordionContent>
-                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4">
-                                    {course.lessons.map(lesson => (
-                                        <div key={lesson.id} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`${course.id}-${lesson.id}`}
-                                                checked={selectedLessons[course.id]?.some(l => l.id === lesson.id) || false}
-                                                onCheckedChange={() => toggleLesson(course, lesson)}
-                                            />
-                                            <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                {lesson.title}
-                                            </label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
+                    {courses.map(course => {
+                        const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
+                        return (
+                            <AccordionItem value={course.id} key={course.id}>
+                                <AccordionTrigger>
+                                    <div className="flex items-center gap-4 w-full">
+                                        <Checkbox
+                                            id={`select-all-${course.id}`}
+                                            checked={allCourseLessonsSelected}
+                                            onCheckedChange={(checked) => toggleCourse(course, !!checked)}
+                                            onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                            aria-label={`Select all lessons from ${course.title}`}
+                                        />
+                                        <span>{course.title}</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-4">
+                                        {course.lessons.map(lesson => (
+                                            <div key={lesson.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`${course.id}-${lesson.id}`}
+                                                    checked={selectedLessons[course.id]?.some(l => l.id === lesson.id) || false}
+                                                    onCheckedChange={() => toggleLesson(course, lesson)}
+                                                />
+                                                <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                    {lesson.title}
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        )
+                    })}
                 </Accordion>
             </div>
 
@@ -457,39 +485,44 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <div>
                         <Label>Date Range</Label>
-                        <Popover>
+                         <Popover>
                             <PopoverTrigger asChild>
                             <Button
+                                id="date"
                                 variant={"outline"}
                                 className={cn(
                                 "w-full justify-start text-left font-normal",
-                                !form.watch('dateRange.from') && "text-muted-foreground"
+                                !dateRange?.from && "text-muted-foreground"
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {form.watch('dateRange.from') ? (
-                                    form.watch('dateRange.to') ? (
-                                        <>
-                                        {format(form.watch('dateRange.from')!, "LLL dd, y")} - {format(form.watch('dateRange.to')!, "LLL dd, y")}
-                                        </>
-                                    ) : (
-                                        format(form.watch('dateRange.from')!, "LLL dd, y")
-                                    )
+                                {dateRange?.from ? (
+                                dateRange.to ? (
+                                    <>
+                                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                                    {format(dateRange.to, "LLL dd, y")}
+                                    </>
                                 ) : (
-                                    <span>Pick a date range</span>
+                                    format(dateRange.from, "LLL dd, y")
+                                )
+                                ) : (
+                                <span>Pick a date range</span>
                                 )}
                             </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar
+                                    initialFocus
                                     mode="range"
-                                    defaultMonth={form.watch('dateRange.from')}
-                                    selected={{ from: form.watch('dateRange.from')!, to: form.watch('dateRange.to')! }}
-                                    onSelect={(range) => form.setValue('dateRange', range as {from: Date, to: Date})}
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={(range) => form.setValue('dateRange', range as DateRange)}
                                     numberOfMonths={2}
                                 />
                             </PopoverContent>
                         </Popover>
+                        {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
+                        {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
                     </div>
 
                     <div className="flex items-center space-x-4 rounded-md border p-4">
@@ -559,18 +592,24 @@ export default function AISchedulerPage() {
         
         async function loadData() {
             setIsLoading(true);
-            const [fetchedCourses, savedSchedule, watched] = await Promise.all([
-                getCoursesAction(),
-                getScheduleAction(currentUser!.id),
-                getWatchedLessonIdsAction(currentUser!.id)
-            ]);
-            setCourses(fetchedCourses);
-            setSchedule(savedSchedule);
-            setWatchedLessons(watched);
-            setIsLoading(false);
+            try {
+                const [fetchedCourses, savedSchedule, watched] = await Promise.all([
+                    getCoursesAction(),
+                    getScheduleAction(currentUser!.id),
+                    getWatchedLessonIdsAction(currentUser!.id)
+                ]);
+                setCourses(fetchedCourses);
+                setSchedule(savedSchedule);
+                setWatchedLessons(watched);
+            } catch(error) {
+                console.error("Failed to load initial data", error);
+                toast({ title: 'Error', description: 'Could not load page data.', variant: 'destructive' });
+            } finally {
+                setIsLoading(false);
+            }
         }
         loadData();
-    }, [currentUser]);
+    }, [currentUser, toast]);
 
     const handleScheduleGenerated = async (newSchedule: Schedule) => {
         if (!currentUser) return;
@@ -632,6 +671,7 @@ export default function AISchedulerPage() {
             const imgHeight = canvas.height;
             const ratio = imgWidth / imgHeight;
 <<<<<<< HEAD
+<<<<<<< HEAD
 
             let finalImgWidth = pdfWidth - 20; // with some margin
             let finalImgHeight = finalImgWidth / ratio;
@@ -656,18 +696,25 @@ export default function AISchedulerPage() {
 =======
             const newImgWidth = pdfWidth;
             const newImgHeight = newImgWidth / ratio;
+=======
+            let newImgWidth = pdfWidth;
+            let newImgHeight = newImgWidth / ratio;
+>>>>>>> 57caf56 (the date range selector doesnt work properly. just fix it)
             
             let heightLeft = newImgHeight;
             let position = 0;
 
-            pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
-            heightLeft -= pdfHeight;
-
-            while (heightLeft >= 0) {
-                position = heightLeft - newImgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
-                heightLeft -= pdfHeight;
+            if (newImgHeight < pdfHeight) {
+                 pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
+            } else {
+                 while (heightLeft > 0) {
+                    pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
+                    heightLeft -= pdfHeight;
+                    position -= pdfHeight;
+                    if (heightLeft > 0) {
+                        pdf.addPage();
+                    }
+                }
             }
             
             pdf.save('schedule.pdf');
@@ -838,7 +885,7 @@ export default function AISchedulerPage() {
                     </div>
                 </div>
 
-                <div ref={scheduleRef} className="p-2">
+                <div ref={scheduleRef} className="p-2 bg-background">
                     {sortedScheduleDays.length > 0 ? (
                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {sortedScheduleDays.map(day => (
@@ -850,10 +897,12 @@ export default function AISchedulerPage() {
                                         <ul className="space-y-4">
                                             {schedule![day].map(lesson => {
                                                 const isWatched = watchedLessons.has(lesson.lessonId);
+                                                const lessonTime = parse(lesson.time, 'h:mm a', new Date());
+
                                                 return (
                                                     <li key={lesson.lessonId} className="flex items-start gap-4">
                                                         <div className="text-right flex-shrink-0 w-20">
-                                                            <p className="font-bold text-primary">{lesson.time}</p>
+                                                            <p className="font-bold text-primary">{format(lessonTime, 'h:mm a')}</p>
                                                         </div>
                                                         <div className="relative flex-grow pl-6">
                                                             <div className="absolute left-0 top-1 h-full border-l-2 border-border"></div>
@@ -891,3 +940,5 @@ export default function AISchedulerPage() {
         </main>
     );
 }
+
+    
