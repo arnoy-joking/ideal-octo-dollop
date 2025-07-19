@@ -1,6 +1,10 @@
 
 import type { Timestamp } from "firebase/firestore";
+<<<<<<< HEAD
 import { z } from 'zod';
+=======
+import { z } from "zod";
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 
 export interface Lesson {
   id: string;
@@ -8,6 +12,7 @@ export interface Lesson {
   duration: string;
   videoId: string;
   pdfUrl?: string;
+  courseId?: string; // Optional: Can be added when processing
 }
 
 export interface Course {
@@ -64,6 +69,7 @@ export interface MonthlyGoal {
     year: number;
 }
 
+<<<<<<< HEAD
 // Scheduler Types
 const ScheduledLessonSchema = z.object({
   lessonId: z.string(),
@@ -94,4 +100,43 @@ export const GenerateScheduleInputSchema = z.object({
 
 
 export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
+=======
+
+// Types for AI Scheduler
+export interface ScheduledLesson {
+    lessonId: string;
+    courseId: string;
+    title: string;
+    time: string; // HH:mm format
+}
+
+export type Schedule = Record<string, ScheduledLesson[]>; // Key is 'YYYY-MM-DD'
+
+export const GenerateScheduleInputSchema = z.object({
+  lessons: z.array(z.object({
+      id: z.string(),
+      title: z.string(),
+      duration: z.string(),
+      videoId: z.string(),
+      pdfUrl: z.string().optional(),
+      courseId: z.string().optional(),
+  })),
+  startDate: z.string(),
+  endDate: z.string(),
+  isLazy: z.boolean(),
+  prefersMultiple: z.boolean(),
+  customInstructions: z.string().optional(),
+});
+export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
+
+
+export const GenerateScheduleOutputSchema = z.object({
+    schedule: z.record(z.string(), z.array(z.object({
+        lessonId: z.string(),
+        courseId: z.string(),
+        title: z.string(),
+        time: z.string(),
+    })))
+});
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 export type GenerateScheduleOutput = z.infer<typeof GenerateScheduleOutputSchema>;

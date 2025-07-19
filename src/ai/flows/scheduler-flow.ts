@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use server';
 /**
  * @fileOverview An AI flow for generating a personalized study schedule.
@@ -5,10 +6,23 @@
  * - generateStudySchedule - A function that creates a study schedule based on user inputs.
  * - GenerateScheduleInput - The input type for the generateStudySchedule function.
  * - GenerateScheduleOutput - The return type for the generateStudySchedule function.
+=======
+
+'use server';
+/**
+ * @fileOverview An AI flow for generating a smart study schedule.
+ *
+ * This file defines the AI flow for creating a personalized study schedule.
+ * It takes a list of lessons, a date range, and user preferences, and returns
+ * a structured, intelligent study plan. The core logic uses a powerful AI model
+ * to suggest dates and times, which are then validated and structured by
+ * application code to ensure reliability.
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+<<<<<<< HEAD
 import type { GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/types';
 import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, AiScheduledLessonSchema } from '@/lib/types';
 import { parse } from 'date-fns';
@@ -59,6 +73,56 @@ User Inputs:
     - Lesson ID: {{this.id}}, Title: "{{this.title}}", Course: "{{this.courseTitle}}" (ID: {{this.courseId}})
 {{/each}}
 `
+=======
+import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, type GenerateScheduleInput, type GenerateScheduleOutput, type Schedule, type ScheduledLesson } from '@/lib/types';
+import { eachDayOfInterval, format } from 'date-fns';
+
+const AIScheduleResponseSchema = z.object({
+  scheduledLessons: z.array(z.object({
+    lessonId: z.string(),
+    courseId: z.string(),
+    date: z.string().describe("The date for the lesson in 'yyyy-MM-dd' format."),
+    time: z.string().describe("The time for the lesson in 'HH:mm' 24-hour format."),
+    title: z.string(),
+  })),
+});
+type AIScheduleResponse = z.infer<typeof AIScheduleResponseSchema>;
+
+const schedulerPrompt = ai.definePrompt({
+    name: 'studySchedulerPrompt',
+    input: { schema: GenerateScheduleInputSchema },
+    output: { schema: AIScheduleResponseSchema },
+    prompt: `You are an expert academic scheduler. Your task is to create a smart, balanced, and effective study plan for a student based on their selected lessons, available time, and personal preferences.
+
+    **Core Directives:**
+    1.  **Schedule All Lessons:** You MUST schedule every single lesson provided in the input. Do not omit any.
+    2.  **Maintain Sequence:** When scheduling lessons from the same course, you MUST maintain their original order. For example, "Lesson 1" must always come before "Lesson 2" of the same course.
+    3.  **Adhere to Date Range:** All scheduled lessons must fall strictly within the provided start and end dates, inclusive.
+    4.  **Create a Balanced Schedule:** This is crucial. Do not cram all lessons for one subject into one day. Distribute different subjects throughout the week to keep the learning process engaging and prevent burnout. For instance, mix a 'Physics' lesson with a 'Bangla' lesson on the same day if possible, rather than scheduling two 'Physics' lessons.
+    5.  **Use 24-Hour Time Format:** All times must be in 'HH:mm' 24-hour format (e.g., '09:00', '14:30').
+    6.  **Pacing and Preferences:**
+        *   If 'isLazy' is true, create a more relaxed, spread-out schedule. This means fewer lessons per day and more rest days if the timeframe allows.
+        *   If 'prefersMultiple' is false, you should strictly avoid scheduling more than one lesson from the same course on the same day.
+        *   If 'prefersMultiple' is true, you are allowed to schedule multiple lessons from the same course on the same day, but still prioritize variety and balance. Don't just cluster them all together.
+    7.  **Custom Instructions:** Pay close attention to any custom instructions from the user (e.g., "I'm busy on Friday afternoons," "I prefer to study technical subjects in the morning"). These are high-priority constraints.
+    8.  **Realistic Times:** Assign reasonable study times. Avoid scheduling too early or too late unless specified in custom instructions. Leave at least an hour gap between consecutive lessons.
+
+    **Input Data:**
+    - Start Date: {{{startDate}}}
+    - End Date: {{{endDate}}}
+    - Prefers Relaxed Pace (isLazy): {{{isLazy}}}
+    - Prefers Multiple Lessons from Same Course (prefersMultiple): {{{prefersMultiple}}}
+    - Lessons to Schedule:
+    {{#each lessons}}
+    - Lesson ID: {{id}}, Course ID: {{courseId}}, Title: "{{title}}"
+    {{/each}}
+    {{#if customInstructions}}
+    - Custom Instructions: {{{customInstructions}}}
+    {{/if}}
+
+    Now, generate the schedule based on these directives.
+    `,
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 });
 
 const generateStudyScheduleFlow = ai.defineFlow(
@@ -68,6 +132,7 @@ const generateStudyScheduleFlow = ai.defineFlow(
         outputSchema: GenerateScheduleOutputSchema,
     },
     async (input) => {
+<<<<<<< HEAD
         // The AI will be asked to schedule the lessons in the order they are provided.
         // The prompt now emphasizes maintaining the original sequence.
         const { output } = await schedulerPrompt(input);
@@ -116,9 +181,77 @@ const generateStudyScheduleFlow = ai.defineFlow(
         }
 
         return structuredSchedule;
+=======
+        const { output } = await schedulerPrompt(input);
+
+        if (!output || !output.scheduledLessons) {
+            console.error('AI did not return a valid schedule structure.');
+            return { schedule: {} };
+        }
+        
+        // Post-processing and validation logic to ensure the schedule is robust.
+        const finalSchedule: Schedule = {};
+
+        // 1. Create a set of all lesson IDs that need to be scheduled
+        const requiredLessonIds = new Set(input.lessons.map(l => l.id));
+        const scheduledLessonIds = new Set(output.scheduledLessons.map(l => l.lessonId));
+
+        // 2. Validate that all required lessons are present in the AI's output
+        for (const id of requiredLessonIds) {
+            if (!scheduledLessonIds.has(id)) {
+                // This is a fallback, but a good prompt should prevent this.
+                console.warn(`AI failed to schedule lesson ID: ${id}. The schedule may be incomplete.`);
+            }
+        }
+        
+        // 3. Structure the data by date
+        for (const lesson of output.scheduledLessons) {
+            const date = lesson.date;
+            if (!finalSchedule[date]) {
+                finalSchedule[date] = [];
+            }
+            finalSchedule[date].push({
+                lessonId: lesson.lessonId,
+                courseId: lesson.courseId,
+                title: lesson.title,
+                time: lesson.time,
+            });
+        }
+
+        // 4. Sort lessons within each day chronologically
+        for (const day in finalSchedule) {
+            finalSchedule[day].sort((a, b) => {
+                const timeA = a.time.split(':').map(Number);
+                const timeB = b.time.split(':').map(Number);
+                if (timeA[0] !== timeB[0]) {
+                    return timeA[0] - timeB[0];
+                }
+                return timeA[1] - timeB[1];
+            });
+        }
+        
+        return { schedule: finalSchedule };
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
     }
 );
 
 export async function generateStudySchedule(input: GenerateScheduleInput): Promise<GenerateScheduleOutput> {
+<<<<<<< HEAD
     return await generateStudyScheduleFlow(input);
+=======
+  // Add courseId to each lesson object before passing to the flow
+  const lessonsWithCourseId = input.lessons.map(l => ({...l, courseId: input.lessons.find(lesson => lesson.id === l.id)!.courseId}));
+  
+  const allDays = eachDayOfInterval({
+    start: new Date(input.startDate),
+    end: new Date(input.endDate),
+  }).map(d => format(d, 'yyyy-MM-dd'));
+
+  const flowInput = {
+    ...input,
+    lessons: input.lessons,
+  };
+
+  return await generateStudyScheduleFlow(flowInput);
+>>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 }
