@@ -412,7 +412,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         setSelectedLessons({});
         form.reset();
       } else {
-        toast({ title: 'AI Failed to Generate Schedule', description: 'Please try adjusting your request or selected lessons.', variant: 'destructive' });
+        toast({ title: 'AI Failed to Generate Schedule', description: 'The AI may have had an issue. Please try adjusting your request or selected lessons.', variant: 'destructive' });
       }
     } catch (error) {
       console.error(error);
@@ -515,7 +515,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                     initialFocus
                                     mode="range"
                                     defaultMonth={dateRange?.from}
-                                    selected={dateRange}
+                                    selected={dateRange ? { from: dateRange.from, to: dateRange.to } : undefined}
                                     onSelect={(range) => form.setValue('dateRange', range as DateRange)}
                                     numberOfMonths={2}
                                 />
@@ -599,8 +599,12 @@ export default function AISchedulerPage() {
                     getWatchedLessonIdsAction(currentUser!.id)
                 ]);
                 setCourses(fetchedCourses);
-                setSchedule(savedSchedule);
-                setWatchedLessons(watched);
+                if (savedSchedule) {
+                    setSchedule(savedSchedule);
+                }
+                if (watched) {
+                    setWatchedLessons(watched);
+                }
             } catch(error) {
                 console.error("Failed to load initial data", error);
                 toast({ title: 'Error', description: 'Could not load page data.', variant: 'destructive' });
@@ -725,6 +729,19 @@ export default function AISchedulerPage() {
         } finally {
             setIsDownloading(false);
         }
+    };
+    
+    // This function attempts to parse time flexibly
+    const parseFlexibleTime = (timeStr: string) => {
+        const now = new Date();
+        const formatsToTry = ['hh:mm a', 'h:mm a', 'HH:mm'];
+        for (const fmt of formatsToTry) {
+            const parsed = parse(timeStr, fmt, now);
+            if (!isNaN(parsed.getTime())) {
+                return parsed;
+            }
+        }
+        return new Date('invalid'); // Return an invalid date if all fail
     };
 
 <<<<<<< HEAD
@@ -897,12 +914,13 @@ export default function AISchedulerPage() {
                                         <ul className="space-y-4">
                                             {schedule![day].map(lesson => {
                                                 const isWatched = watchedLessons.has(lesson.lessonId);
-                                                const lessonTime = parse(lesson.time, 'hh:mm a', new Date());
+                                                const lessonTime = parseFlexibleTime(lesson.time);
+                                                const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';
 
                                                 return (
                                                     <li key={lesson.lessonId} className="flex items-start gap-4">
                                                         <div className="text-right flex-shrink-0 w-20">
-                                                            <p className="font-bold text-primary">{format(lessonTime, 'h:mm a')}</p>
+                                                            <p className="font-bold text-primary">{formattedTime}</p>
                                                         </div>
                                                         <div className="relative flex-grow pl-6">
                                                             <div className="absolute left-0 top-1 h-full border-l-2 border-border"></div>
