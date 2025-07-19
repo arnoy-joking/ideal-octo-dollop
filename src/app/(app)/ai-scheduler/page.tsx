@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react';
@@ -58,18 +59,16 @@ function AISchedulerDialog({ courses, onScheduleGenerated }: { courses: Course[]
     };
 
     const handleGenerate = async () => {
-        const flatSelectedLessons = Object.entries(selectedLessons).flatMap(([courseId, lessonIds]) => {
-            const course = courses.find(c => c.id === courseId);
-            // Ensure lessons are added in their original order
-            return course!.lessons
-                .filter(l => lessonIds.has(l.id))
+        const flatSelectedLessons = courses.flatMap(course => 
+            course.lessons
+                .filter(l => selectedLessons[course.id]?.has(l.id))
                 .map(lesson => ({
                     id: lesson.id,
                     title: lesson.title,
-                    courseId: course!.id,
-                    courseTitle: course!.title
-                }));
-        });
+                    courseId: course.id,
+                    courseTitle: course.title
+                }))
+        );
 
         if (flatSelectedLessons.length === 0) {
             toast({ title: 'No lessons selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });

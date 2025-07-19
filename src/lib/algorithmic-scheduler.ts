@@ -1,18 +1,6 @@
 import { eachDayOfInterval, format, parseISO } from 'date-fns';
 import type { GenerateScheduleInput, GenerateScheduleOutput, Course, Lesson } from './types';
 
-// Helper function to group lessons by course
-function groupLessonsByCourse(lessons: GenerateScheduleInput['lessons']) {
-    const courseLessonMap: Record<string, any[]> = {};
-    for (const lesson of lessons) {
-        if (!courseLessonMap[lesson.courseId]) {
-            courseLessonMap[lesson.courseId] = [];
-        }
-        courseLessonMap[lesson.courseId].push(lesson);
-    }
-    return courseLessonMap;
-}
-
 export function generateScheduleAlgorithmically(input: Omit<GenerateScheduleInput, 'customInstructions'>): GenerateScheduleOutput {
     const { lessons, startDate, endDate, isLazy, prefersMultipleLessons } = input;
 
@@ -29,78 +17,72 @@ export function generateScheduleAlgorithmically(input: Omit<GenerateScheduleInpu
     const baseLessonsPerDay = Math.ceil(lessons.length / days.length);
     const lessonsPerDay = isLazy ? Math.max(1, Math.floor(baseLessonsPerDay * 0.75)) : Math.min(6, baseLessonsPerDay);
     
-    // Group lessons by course to maintain order
-    const courseLessonMap = groupLessonsByCourse(lessons);
-    const courseQueues: Record<string, any[]> = { ...courseLessonMap };
-    
-    // Sort courses by number of lessons to help with distribution
-    const courseOrder = Object.keys(courseQueues).sort((a, b) => courseQueues[b].length - courseQueues[a].length);
-
     const schedule: GenerateScheduleOutput = {};
+    days.forEach(day => {
+        schedule[format(day, 'yyyy-MM-dd')] = [];
+    });
+
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
-
-    let courseOrderIndex = 0;
     
-    for (const day of days) {
-        const dayString = format(day, 'yyyy-MM-dd');
-        schedule[dayString] = [];
+    let dayIndex = 0;
+    const lastScheduledCourseOnDay: Record<string, string> = {};
 
-        const scheduledCoursesToday = new Set<string>();
+    lessons.forEach(lesson => {
+        let scheduled = false;
+        let startDayIndex = dayIndex; // Remember where we started looking for a slot
 
-        while (schedule[dayString].length < lessonsPerDay) {
-            let scheduledSomething = false;
+        while (!scheduled) {
+            const dayString = format(days[dayIndex % days.length], 'yyyy-MM-dd');
+            const daySchedule = schedule[dayString];
 
-            // Loop through courses to pick a lesson
-            for (let i = 0; i < courseOrder.length; i++) {
-                if (schedule[dayString].length >= lessonsPerDay) break;
-
-                const courseId = courseOrder[courseOrderIndex % courseOrder.length];
-                courseOrderIndex++;
-
-                if (courseQueues[courseId] && courseQueues[courseId].length > 0) {
-                     // If we don't prefer multiple and we've already scheduled this course today, skip it
-                    if (!prefersMultipleLessons && scheduledCoursesToday.has(courseId)) {
+            // Check if we can add to this day
+            if (daySchedule.length < lessonsPerDay) {
+                // Check variety rule if needed
+                if (!prefersMultipleLessons) {
+                    const lastCourseId = lastScheduledCourseOnDay[dayString];
+                    if (lastCourseId && lastCourseId === lesson.courseId) {
+                        // Can't schedule, move to next day
+                    } else {
+                        // It's okay to schedule
+                        const time = studyTimes[daySchedule.length % studyTimes.length];
+                        daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
+                        lastScheduledCourseOnDay[dayString] = lesson.courseId;
+                        scheduled = true;
+                        // Don't advance dayIndex yet, try to fill this day first
                         continue;
                     }
-                    
-                    const lessonToSchedule = courseQueues[courseId].shift(); // Get next lesson in sequence
-                    if (lessonToSchedule) {
-                        schedule[dayString].push({
-                            lessonId: lessonToSchedule.id,
-                            courseId: lessonToSchedule.courseId,
-                            time: studyTimes[schedule[dayString].length % studyTimes.length],
-                            title: lessonToSchedule.title,
-                        });
-                        scheduledCoursesToday.add(courseId);
-                        scheduledSomething = true;
-                    }
+                } else {
+                    // It's always okay to schedule if multiple are preferred
+                    const time = studyTimes[daySchedule.length % studyTimes.length];
+                    daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
+                    scheduled = true;
+                    // Don't advance dayIndex yet
+                    continue;
                 }
             }
-
-            // If we couldn't schedule anything in a full loop, break to avoid infinite loop
-            if (!scheduledSomething) {
-                break;
-            }
-        }
-    }
-    
-    // If there are still lessons left (e.g. from strict no-multiple-lessons rule), distribute them
-    const remainingLessons = Object.values(courseQueues).flat();
-    if (remainingLessons.length > 0) {
-        let dayIndex = 0;
-        for (const lesson of remainingLessons) {
-            const dayString = format(days[dayIndex % days.length], 'yyyy-MM-dd');
-            if (schedule[dayString].length < lessonsPerDay + 2) { // Allow some overflow
-                 schedule[dayString].push({
-                    lessonId: lesson.id,
-                    courseId: lesson.courseId,
-                    time: studyTimes[schedule[dayString].length % studyTimes.length],
-                    title: lesson.title,
-                });
-            }
+            
+            // If we couldn't schedule, move to the next day and try again
             dayIndex++;
+
+            // Failsafe to prevent infinite loops if schedule is too packed
+            if (dayIndex % days.length === startDayIndex) {
+                 // We've looped through all days and couldn't find a spot.
+                 // Force schedule it on the next available day that has the least items.
+                 let leastBusyDay = Object.keys(schedule).reduce((a, b) => schedule[a].length < schedule[b].length ? a : b);
+                 const daySchedule = schedule[leastBusyDay];
+                 const time = studyTimes[daySchedule.length % studyTimes.length];
+                 daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
+                 scheduled = true;
+            }
         }
-    }
+    });
+
+    // Remove any empty days from the schedule
+    Object.keys(schedule).forEach(day => {
+        if (schedule[day].length === 0) {
+            delete schedule[day];
+        }
+    });
 
     return schedule;
 }
