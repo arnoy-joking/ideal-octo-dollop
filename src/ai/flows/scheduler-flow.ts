@@ -1,32 +1,30 @@
-<<<<<<< HEAD
 'use server';
 /**
  * @fileOverview An AI flow for generating a personalized study schedule.
  *
- * - generateStudySchedule - A function that creates a study schedule based on user inputs.
- * - GenerateScheduleInput - The input type for the generateStudySchedule function.
- * - GenerateScheduleOutput - The return type for the generateStudySchedule function.
-=======
-
-'use server';
-/**
- * @fileOverview An AI flow for generating a smart study schedule.
- *
  * This file defines the AI flow for creating a personalized study schedule.
  * It takes a list of lessons, a date range, and user preferences, and returns
  * a structured, intelligent study plan. The core logic uses a powerful AI model
- * to suggest dates and times, which are then validated and structured by
- * application code to ensure reliability.
->>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
+ * to suggest dates and times for each lesson individually. The application code
+
+ * then validates this output and structures it into the final schedule format,
+ * ensuring reliability and correctness.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-<<<<<<< HEAD
 import type { GenerateScheduleInput, GenerateScheduleOutput } from '@/lib/types';
-import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, AiScheduledLessonSchema } from '@/lib/types';
+import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema } from '@/lib/types';
 import { parse } from 'date-fns';
 
+// This is the schema the AI is expected to return: a simple, flat list of lessons with assigned dates and times.
+const AiScheduledLessonSchema = z.object({
+    lessonId: z.string(),
+    courseId: z.string(),
+    title: z.string(),
+    date: z.string().describe("The date for the lesson in 'YYYY-MM-DD' format."),
+    time: z.string().describe("The time for the lesson in 'hh:mm a' 12-hour format, e.g., '09:00 AM' or '02:30 PM'."),
+});
 
 const AiScheduleListOutputSchema = z.object({
     scheduledLessons: z.array(AiScheduledLessonSchema)
@@ -36,27 +34,27 @@ const schedulerPrompt = ai.definePrompt({
     name: 'schedulerPrompt',
     input: { schema: GenerateScheduleInputSchema },
     output: { schema: AiScheduleListOutputSchema },
-    prompt: `You are an expert academic scheduler. Your primary goal is to create a realistic, **balanced**, and **varied** study schedule that promotes effective learning.
+    prompt: `You are an expert academic scheduler. Your primary goal is to create a realistic, **balanced**, and **varied** study schedule that promotes effective learning and prevents burnout.
 
 Analyze the user's input carefully:
--   **Lessons**: A list of lessons to be scheduled, with their course context. You MUST schedule every lesson provided.
+-   **Lessons**: A list of lessons to be scheduled, with their course context. You MUST schedule every single lesson provided.
 -   **Date Range**: The schedule must fit between the start and end dates, inclusive.
--   **User Traits**:
+-   **User Preferences**:
     -   Lazy: If true, schedule fewer lessons per day and create a more relaxed pace. Introduce more breaks and avoid cramming.
     -   Prefers Multiple Lessons:
-        - If 'false', you MUST schedule lessons from different courses on the same day. Do not schedule multiple lessons from the same course on the same day if other options are available.
+        - If 'false', you MUST prioritize scheduling lessons from different courses on the same day. Do not schedule multiple lessons from the same course on the same day if other options are available.
         - If 'true', you are allowed to schedule more than one lesson from the same course on a single day, but you should still prioritize variety when possible to create a balanced plan. Avoid scheduling many difficult topics together.
 -   **Custom Instructions**: These are very important. Adhere to any constraints the user provides.
 
-Your goal is to distribute all the selected lessons across the available days.
+Your primary goal is to distribute all the selected lessons across the available days.
 
-Instructions:
-1.  **PRIORITIZE BALANCE AND VARIETY**: This is the most important rule. Mix different subjects. Do not schedule multiple heavy technical subjects back-to-back. Instead, interleave them with lighter topics. The goal is to create a well-paced, varied schedule that keeps the user engaged and prevents burnout.
-2.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in HH:MM AM/PM 12-hour format, e.g., '09:00 AM', '02:30 PM').
-3.  **USE REASONABLE TIMES**: Schedule lessons with reasonable gaps. Do not schedule lessons back-to-back. There should be at least an hour between study sessions on the same day to allow for breaks and context switching.
-4.  **RESPECT DATE RANGE**: The 'date' for each lesson must be within the provided Start and End Date range.
+**CRITICAL INSTRUCTIONS:**
+1.  **MAINTAIN SEQUENCE**: When scheduling lessons from the same course, you MUST maintain their original order. For example, "Physics - Part 1" must always come before "Physics - Part 2". The lessons in the input are already in the correct sequence.
+2.  **ASSIGN DATE & TIME**: For EACH lesson provided in the input, you MUST assign a 'date' (in YYYY-MM-DD format) and a 'time' (in hh:mm a 12-hour format, e.g., '09:00 AM', '02:30 PM').
+3.  **PRIORITIZE BALANCE AND VARIETY**: Mix different subjects. Do not schedule multiple heavy technical subjects back-to-back. Instead, interleave them with lighter topics.
+4.  **USE REASONABLE TIMES**: Schedule lessons with reasonable gaps. Do not schedule lessons back-to-back without at least an hour in between.
 5.  **INCLUDE ALL LESSONS**: Ensure every single lesson from the input is present in the final output array. Do not omit any lessons.
-6.  **OUTPUT FORMAT**: The final output MUST be a JSON object with a single key "scheduledLessons" which is an array of all the scheduled lessons. **Maintain the original sequence of lessons from the input list when generating the output.**
+6.  **OUTPUT FORMAT**: The final output MUST be a JSON object with a single key "scheduledLessons" which is an array of all the scheduled lessons.
 
 User Inputs:
 -   **Start Date**: {{{startDate}}}
@@ -70,59 +68,9 @@ User Inputs:
 
 -   **Lessons to Schedule**:
 {{#each lessons}}
-    - Lesson ID: {{this.id}}, Title: "{{this.title}}", Course: "{{this.courseTitle}}" (ID: {{this.courseId}})
+    - Lesson ID: {{this.id}}, Title: "{{this.title}}", Course: "{{this.courseId}}"
 {{/each}}
 `
-=======
-import { GenerateScheduleInputSchema, GenerateScheduleOutputSchema, type GenerateScheduleInput, type GenerateScheduleOutput, type Schedule, type ScheduledLesson } from '@/lib/types';
-import { eachDayOfInterval, format } from 'date-fns';
-
-const AIScheduleResponseSchema = z.object({
-  scheduledLessons: z.array(z.object({
-    lessonId: z.string(),
-    courseId: z.string(),
-    date: z.string().describe("The date for the lesson in 'yyyy-MM-dd' format."),
-    time: z.string().describe("The time for the lesson in 'HH:mm' 24-hour format."),
-    title: z.string(),
-  })),
-});
-type AIScheduleResponse = z.infer<typeof AIScheduleResponseSchema>;
-
-const schedulerPrompt = ai.definePrompt({
-    name: 'studySchedulerPrompt',
-    input: { schema: GenerateScheduleInputSchema },
-    output: { schema: AIScheduleResponseSchema },
-    prompt: `You are an expert academic scheduler. Your task is to create a smart, balanced, and effective study plan for a student based on their selected lessons, available time, and personal preferences.
-
-    **Core Directives:**
-    1.  **Schedule All Lessons:** You MUST schedule every single lesson provided in the input. Do not omit any.
-    2.  **Maintain Sequence:** When scheduling lessons from the same course, you MUST maintain their original order. For example, "Lesson 1" must always come before "Lesson 2" of the same course.
-    3.  **Adhere to Date Range:** All scheduled lessons must fall strictly within the provided start and end dates, inclusive.
-    4.  **Create a Balanced Schedule:** This is crucial. Do not cram all lessons for one subject into one day. Distribute different subjects throughout the week to keep the learning process engaging and prevent burnout. For instance, mix a 'Physics' lesson with a 'Bangla' lesson on the same day if possible, rather than scheduling two 'Physics' lessons.
-    5.  **Use 24-Hour Time Format:** All times must be in 'HH:mm' 24-hour format (e.g., '09:00', '14:30').
-    6.  **Pacing and Preferences:**
-        *   If 'isLazy' is true, create a more relaxed, spread-out schedule. This means fewer lessons per day and more rest days if the timeframe allows.
-        *   If 'prefersMultiple' is false, you should strictly avoid scheduling more than one lesson from the same course on the same day.
-        *   If 'prefersMultiple' is true, you are allowed to schedule multiple lessons from the same course on the same day, but still prioritize variety and balance. Don't just cluster them all together.
-    7.  **Custom Instructions:** Pay close attention to any custom instructions from the user (e.g., "I'm busy on Friday afternoons," "I prefer to study technical subjects in the morning"). These are high-priority constraints.
-    8.  **Realistic Times:** Assign reasonable study times. Avoid scheduling too early or too late unless specified in custom instructions. Leave at least an hour gap between consecutive lessons.
-
-    **Input Data:**
-    - Start Date: {{{startDate}}}
-    - End Date: {{{endDate}}}
-    - Prefers Relaxed Pace (isLazy): {{{isLazy}}}
-    - Prefers Multiple Lessons from Same Course (prefersMultiple): {{{prefersMultiple}}}
-    - Lessons to Schedule:
-    {{#each lessons}}
-    - Lesson ID: {{id}}, Course ID: {{courseId}}, Title: "{{title}}"
-    {{/each}}
-    {{#if customInstructions}}
-    - Custom Instructions: {{{customInstructions}}}
-    {{/if}}
-
-    Now, generate the schedule based on these directives.
-    `,
->>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 });
 
 const generateStudyScheduleFlow = ai.defineFlow(
@@ -132,126 +80,55 @@ const generateStudyScheduleFlow = ai.defineFlow(
         outputSchema: GenerateScheduleOutputSchema,
     },
     async (input) => {
-<<<<<<< HEAD
-        // The AI will be asked to schedule the lessons in the order they are provided.
-        // The prompt now emphasizes maintaining the original sequence.
+        // The AI is asked to schedule the lessons. We trust it to assign dates and times.
         const { output } = await schedulerPrompt(input);
 
         if (!output || !output.scheduledLessons || output.scheduledLessons.length !== input.lessons.length) {
             throw new Error("AI failed to return a valid schedule for all lessons.");
         }
         
-        // Create a map for easy lookup of the original lesson data by its ID.
-        const originalLessonsMap = new Map(input.lessons.map(l => [l.id, l]));
-
-        // Process the flat list from the AI into the structured format the frontend expects.
+        // The AI returns a flat list. We now structure it into the nested object the frontend expects.
+        // This ensures the structure is always correct, regardless of AI inconsistencies.
         const structuredSchedule: GenerateScheduleOutput = {};
         
-        // Ensure the AI output is processed in the same order as the original input lessons.
-        // This guarantees that if the AI scrambles the order, we correct it here.
-        input.lessons.forEach(originalLesson => {
-            const aiScheduledLesson = output.scheduledLessons.find(sl => sl.lessonId === originalLesson.id);
-            
-            if (aiScheduledLesson) {
-                const date = aiScheduledLesson.date;
-                if (!structuredSchedule[date]) {
-                    structuredSchedule[date] = [];
-                }
-                structuredSchedule[date].push({
-                    lessonId: aiScheduledLesson.lessonId,
-                    courseId: originalLesson.courseId, // Use original courseId for consistency
-                    time: aiScheduledLesson.time,
-                    title: originalLesson.title, // Use original title
-                });
+        output.scheduledLessons.forEach(aiScheduledLesson => {
+            const date = aiScheduledLesson.date;
+            if (!structuredSchedule[date]) {
+                structuredSchedule[date] = [];
             }
+            structuredSchedule[date].push({
+                lessonId: aiScheduledLesson.lessonId,
+                courseId: aiScheduledLesson.courseId,
+                time: aiScheduledLesson.time,
+                title: aiScheduledLesson.title, 
+            });
         });
         
-        // Sort lessons within each day by time
+        // Sort lessons within each day by time. This is a critical step to ensure chronological order.
         for (const date in structuredSchedule) {
             structuredSchedule[date].sort((a, b) => {
                 try {
-                    const timeA = parse(a.time, 'h:mm a', new Date());
-                    const timeB = parse(b.time, 'h:mm a', new Date());
+                    // Use a flexible parser to handle 'h:mm a' and 'hh:mm a'
+                    const timeA = parse(a.time.toUpperCase(), 'hh:mm a', new Date());
+                    const timeB = parse(b.time.toUpperCase(), 'hh:mm a', new Date());
                     return timeA.getTime() - timeB.getTime();
                 } catch(e) {
-                    // Fallback for invalid time formats, though the prompt should prevent this.
-                    return a.time.localeCompare(b.time);
+                    try {
+                        const timeA = parse(a.time.toUpperCase(), 'h:mm a', new Date());
+                        const timeB = parse(b.time.toUpperCase(), 'h:mm a', new Date());
+                        return timeA.getTime() - timeB.getTime();
+                    } catch (e2) {
+                        // Fallback for invalid time formats, though the prompt should prevent this.
+                        return a.time.localeCompare(b.time);
+                    }
                 }
             });
         }
 
         return structuredSchedule;
-=======
-        const { output } = await schedulerPrompt(input);
-
-        if (!output || !output.scheduledLessons) {
-            console.error('AI did not return a valid schedule structure.');
-            return { schedule: {} };
-        }
-        
-        // Post-processing and validation logic to ensure the schedule is robust.
-        const finalSchedule: Schedule = {};
-
-        // 1. Create a set of all lesson IDs that need to be scheduled
-        const requiredLessonIds = new Set(input.lessons.map(l => l.id));
-        const scheduledLessonIds = new Set(output.scheduledLessons.map(l => l.lessonId));
-
-        // 2. Validate that all required lessons are present in the AI's output
-        for (const id of requiredLessonIds) {
-            if (!scheduledLessonIds.has(id)) {
-                // This is a fallback, but a good prompt should prevent this.
-                console.warn(`AI failed to schedule lesson ID: ${id}. The schedule may be incomplete.`);
-            }
-        }
-        
-        // 3. Structure the data by date
-        for (const lesson of output.scheduledLessons) {
-            const date = lesson.date;
-            if (!finalSchedule[date]) {
-                finalSchedule[date] = [];
-            }
-            finalSchedule[date].push({
-                lessonId: lesson.lessonId,
-                courseId: lesson.courseId,
-                title: lesson.title,
-                time: lesson.time,
-            });
-        }
-
-        // 4. Sort lessons within each day chronologically
-        for (const day in finalSchedule) {
-            finalSchedule[day].sort((a, b) => {
-                const timeA = a.time.split(':').map(Number);
-                const timeB = b.time.split(':').map(Number);
-                if (timeA[0] !== timeB[0]) {
-                    return timeA[0] - timeB[0];
-                }
-                return timeA[1] - timeB[1];
-            });
-        }
-        
-        return { schedule: finalSchedule };
->>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
     }
 );
 
 export async function generateStudySchedule(input: GenerateScheduleInput): Promise<GenerateScheduleOutput> {
-<<<<<<< HEAD
     return await generateStudyScheduleFlow(input);
-=======
-  // Add courseId to each lesson object before passing to the flow
-  const lessonsWithCourseId = input.lessons.map(l => ({...l, courseId: input.lessons.find(lesson => lesson.id === l.id)!.courseId}));
-  
-  const allDays = eachDayOfInterval({
-    start: new Date(input.startDate),
-    end: new Date(input.endDate),
-  }).map(d => format(d, 'yyyy-MM-dd'));
-
-  const flowInput = {
-    ...input,
-    lessons: input.lessons,
-  };
-
-  return await generateStudyScheduleFlow(flowInput);
->>>>>>> dbc6be0 (now it hangs when creating schedule. I rolled back to a version. now , u)
 }
