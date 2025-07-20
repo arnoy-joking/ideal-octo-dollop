@@ -486,22 +486,22 @@ export default function AISchedulerPage() {
                                         <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="relative pl-[4.5rem]">
-                                            <div className="absolute left-10 top-0 h-full border-l-2 border-border"></div>
+                                        <div className="relative pl-6">
+                                            <div className="absolute left-10 top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
                                             <ul className="space-y-4">
-                                                {schedule![day].map(lesson => {
+                                                {schedule![day].map((lesson, index) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);
                                                     const lessonTime = parseFlexibleTime(lesson.time);
                                                     const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';
 
                                                     return (
-                                                        <li key={lesson.lessonId} className="flex items-start gap-4">
+                                                        <li key={lesson.lessonId} className="relative flex items-start gap-4">
                                                             <div className="text-right flex-shrink-0 w-20">
                                                                 <p className="font-bold text-primary">{formattedTime}</p>
                                                             </div>
                                                             <div className="relative flex-grow pl-6">
-                                                                <button 
-                                                                    className="absolute -left-[11px] top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:border-muted-foreground"
+                                                                <button
+                                                                    className="absolute -left-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:border-muted-foreground"
                                                                     onClick={() => handleLessonToggle(lesson)}
                                                                     disabled={isWatched}
                                                                     aria-label={`Mark ${lesson.title} as complete`}
