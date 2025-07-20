@@ -46,18 +46,18 @@ Analyze the user's input carefully:
         - If 'true', you can schedule the same course ID more than once on a single day.
 -   **Custom Instructions**: Adhere to any constraints the user provides.
 
-Your primary goal is to distribute slots for all the provided lessons across the available days. You do not need to know the exact number of lessons, just the courses involved. Create a reasonable number of slots per day (e.g., 2-4 depending on laziness).
-
 **CRITICAL INSTRUCTIONS:**
-1.  **DO NOT Schedule Lessons**: Your only job is to assign 'courseId's to date slots. The application code will handle picking the exact lessons in the correct order.
-2.  **Output Format**: The final output MUST be a JSON object with a single key "plan" which is an array of daily plans. Each daily plan has a 'date' and an array of 'courseSlots'. Each slot only contains a 'courseId'.
-3.  **Balance Subjects**: Mix different subjects. Do not schedule multiple heavy technical subjects back-to-back. Interleave them.
+1.  **Schedule ALL Lessons**: Your most important task is to create enough course slots to cover every single lesson provided in the input. Calculate the average lessons per day and distribute them evenly. Do not leave any lessons unscheduled.
+2.  **DO NOT Schedule Individual Lessons**: Your only job is to assign 'courseId's to date slots. The application code will handle picking the exact lessons in the correct order.
+3.  **Output Format**: The final output MUST be a JSON object with a single key "plan" which is an array of daily plans. Each daily plan has a 'date' and an array of 'courseSlots'. Each slot only contains a 'courseId'.
+4.  **Balance Subjects**: Mix different subjects. Do not schedule multiple heavy technical subjects back-to-back. Interleave them.
 
 User Inputs:
 -   **Start Date**: {{{startDate}}}
 -   **End Date**: {{{endDate}}}
 -   **Is Lazy?**: {{{isLazy}}}
 -   **Prefers multiple lessons of same course in a day?**: {{{prefersMultipleLessons}}}
+-   **Total lessons to schedule**: {{{lessons.length}}}
 
 {{#if customInstructions}}
 -   **Custom Instructions**: {{{customInstructions}}}
@@ -124,28 +124,34 @@ const generateStudyScheduleFlow = ai.defineFlow(
             });
         });
         
-        // This is a failsafe. If the AI didn't schedule enough slots for all lessons,
-        // append the remaining lessons to the last available day.
-        let lessonsScheduledCount = Object.values(structuredSchedule).reduce((acc, day) => acc + day.length, 0);
-        if (lessonsScheduledCount < input.lessons.length) {
-            const lastDay = Object.keys(structuredSchedule).pop() || input.endDate;
-            if (!structuredSchedule[lastDay]) {
-                structuredSchedule[lastDay] = [];
-            }
+        // This is a smarter failsafe. If the AI didn't schedule enough slots for all lessons,
+        // distribute the remaining lessons to the least busy days.
+        const allLessons = input.lessons.map(l => ({ ...l, isScheduled: false }));
+        Object.values(structuredSchedule).flat().forEach(scheduled => {
+            const lesson = allLessons.find(l => l.id === scheduled.lessonId);
+            if(lesson) lesson.isScheduled = true;
+        });
 
-            Object.keys(lessonPointers).forEach(courseId => {
-                let lessonIndex = lessonPointers[courseId];
-                while(lessonIndex < lessonsByCourse[courseId].length) {
-                    const lesson = lessonsByCourse[courseId][lessonIndex];
-                     structuredSchedule[lastDay].push({
-                        lessonId: lesson.id,
-                        courseId: lesson.courseId,
-                        title: lesson.title,
-                        time: studyTimes[structuredSchedule[lastDay].length % studyTimes.length],
-                    });
-                    lessonPointers[courseId]++;
-                    lessonIndex = lessonPointers[courseId];
+        const remainingLessons = allLessons.filter(l => !l.isScheduled);
+        
+        if (remainingLessons.length > 0) {
+            remainingLessons.forEach(lesson => {
+                // Find the day with the fewest scheduled items.
+                // If no days exist in schedule, use the start date.
+                let targetDay = Object.keys(structuredSchedule).length > 0
+                    ? Object.keys(structuredSchedule).reduce((a, b) => structuredSchedule[a].length < structuredSchedule[b].length ? a : b)
+                    : input.startDate;
+                
+                if (!structuredSchedule[targetDay]) {
+                    structuredSchedule[targetDay] = [];
                 }
+
+                structuredSchedule[targetDay].push({
+                    lessonId: lesson.id,
+                    courseId: lesson.courseId,
+                    title: lesson.title,
+                    time: studyTimes[structuredSchedule[targetDay].length % studyTimes.length],
+                });
             });
         }
 
