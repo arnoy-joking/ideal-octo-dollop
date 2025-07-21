@@ -1,5 +1,6 @@
+
 import { eachDayOfInterval, format, parse, parseISO } from 'date-fns';
-import type { GenerateScheduleInput, GenerateScheduleOutput, ScheduledLesson, Lesson } from './types';
+import type { GenerateScheduleInput, GenerateScheduleOutput, Lesson } from './types';
 
 interface LessonToSchedule extends Omit<Lesson, 'duration' | 'videoId' | 'pdfUrl'> {
     id: string;
@@ -25,6 +26,7 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
         return {};
     }
 
+    // Create a queue for each course, with lessons correctly sorted.
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     courses.forEach(course => {
         courseQueues[course.id] = allLessons
