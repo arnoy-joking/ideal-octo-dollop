@@ -48,22 +48,20 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     const { dateRange, isLazy } = data;
     const { from: startDate, to: endDate } = dateRange;
     
-    // Create a correctly ordered lesson queue for each selected course
+    const allLessons = selectedCourses.flatMap(c => c.lessons);
+    if (allLessons.length === 0) return {};
+
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     selectedCourses.forEach(course => {
         courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
     });
     
-    const allLessons = selectedCourses.flatMap(c => c.lessons);
-    if (allLessons.length === 0) return {};
-
-    // Determine study days, accounting for 'isLazy'
     const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
     let studyDays: Date[];
 
     if (isLazy) {
         const totalDays = differenceInCalendarDays(endDate, startDate) + 1;
-        const restDays = Math.max(1, Math.floor(totalDays / 4)); // ~1 rest day every 4 days
+        const restDays = Math.max(1, Math.floor(totalDays / 4));
         const studyDayCount = totalDays - restDays;
 
         if (studyDayCount < 1 && totalDays > 0) {
@@ -81,14 +79,13 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     }
     
     if (studyDays.length === 0) return {};
-
-    // Distribute lessons evenly across study days
+    
     const totalLessons = allLessons.length;
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
 
     const dailyQuotas: Record<string, number> = {};
-    studyDays.forEach(day => {
+    studyDays.forEach((day, index) => {
         const dayString = format(day, 'yyyy-MM-dd');
         dailyQuotas[dayString] = lessonsPerDay;
         if (remainingLessons > 0) {
@@ -103,9 +100,8 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     });
 
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
-    const courseIds = selectedCourses.map(c => c.id);
     let courseLastScheduled: Record<string, number> = {};
-    courseIds.forEach(id => courseLastScheduled[id] = -1);
+    selectedCourses.forEach(c => courseLastScheduled[c.id] = -1);
     
     let lessonIndex = 0;
     studyDays.forEach(day => {
@@ -113,19 +109,18 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         const quota = dailyQuotas[dayString] || 0;
         
         for(let i=0; i<quota; i++) {
-            let nextCourseId = '';
-            
-            // Find the course that was scheduled least recently and still has lessons
-            const availableCourses = courseIds.filter(id => courseQueues[id].length > 0);
-            if (availableCourses.length === 0) break; // No more lessons to schedule
+            const availableCourses = selectedCourses.filter(c => courseQueues[c.id]?.length > 0).map(c => c.id);
+            if (availableCourses.length === 0) break;
 
-            let leastRecentId = availableCourses[0];
-            for (const courseId of availableCourses) {
-                if(courseLastScheduled[courseId] < courseLastScheduled[leastRecentId]) {
-                    leastRecentId = courseId;
+            let nextCourseId = availableCourses[0];
+            let minIndex = courseLastScheduled[nextCourseId]
+            
+            for(const courseId of availableCourses) {
+                if (courseLastScheduled[courseId] < minIndex) {
+                    minIndex = courseLastScheduled[courseId];
+                    nextCourseId = courseId;
                 }
             }
-            nextCourseId = leastRecentId;
             
             const lesson = courseQueues[nextCourseId].shift()!;
             schedule[dayString].push({
@@ -138,7 +133,6 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         }
     });
 
-    // Clean up empty days from schedule object
     Object.keys(schedule).forEach(day => {
       if(!schedule[day] || schedule[day].length === 0) {
         delete schedule[day];
@@ -195,12 +189,15 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
 
-  const handleFillGap = (course: Course, fromIndex: number, toIndex: number) => {
+  const handleFillGap = (courseId: string, fromIndex: number, toIndex: number) => {
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+
     const lessonsToSelect = course.lessons.slice(fromIndex, toIndex + 1).map(l => l.id);
     setSelectedLessons(prev => {
-        const currentSelection = new Set(prev[course.id] || []);
+        const currentSelection = new Set(prev[courseId] || []);
         lessonsToSelect.forEach(id => currentSelection.add(id));
-        return { ...prev, [course.id]: Array.from(currentSelection) };
+        return { ...prev, [courseId]: Array.from(currentSelection) };
     });
   };
   
@@ -276,7 +273,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                <div className="flex items-center gap-2 pr-4 py-2">
                                   <Checkbox
                                       id={`select-all-${course.id}`}
-                                      checked={allCourseLessonsSelected || someCourseLessonsSelected}
+                                      checked={allCourseLessonsSelected}
                                       onCheckedChange={(checked) => toggleCourse(course, !!checked)}
                                       className="ml-4"
                                   />
@@ -291,15 +288,16 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                             let fillGapButton = null;
 
                                             if (isSelected && lastSelectedIndex !== -1 && index > lastSelectedIndex + 1) {
+                                                const gapSize = index - lastSelectedIndex - 1;
                                                 fillGapButton = (
                                                     <div className="my-2 flex justify-center">
                                                         <Button
                                                             variant="secondary"
                                                             size="sm"
                                                             className="h-7"
-                                                            onClick={() => handleFillGap(course, lastSelectedIndex + 1, index - 1)}
+                                                            onClick={() => handleFillGap(course.id, lastSelectedIndex + 1, index - 1)}
                                                         >
-                                                            Fill {index - lastSelectedIndex - 1} lesson gap
+                                                            Fill {gapSize} lesson gap
                                                         </Button>
                                                     </div>
                                                 );
