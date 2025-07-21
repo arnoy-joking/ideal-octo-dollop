@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,9 +27,10 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Turtle, FastForward, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
@@ -62,7 +63,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
 
     if (isLazy) {
         const totalDays = differenceInCalendarDays(endDate, startDate) + 1;
-        const restDays = Math.floor(totalDays / 5); // 1 rest day for every 5 days
+        const restDays = Math.max(1, Math.floor(totalDays / 4)); // ~1 rest day every 4 days
         const studyDayCount = totalDays - restDays;
 
         if (studyDayCount < 1 && totalDays > 0) { // Ensure at least one study day if range is valid
@@ -73,15 +74,13 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
             if (studyDays.length > studyDayCount) {
                 studyDays = studyDays.slice(0, studyDayCount);
             }
+             if (studyDays.length === 0 && allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
         }
     } else {
         studyDays = allAvailableDays;
     }
     
-    if (studyDays.length === 0) {
-      if (allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
-      else return {};
-    }
+    if (studyDays.length === 0) return {};
 
     // 3. Distribute lessons evenly across study days
     const totalLessons = allLessons.length;
@@ -103,7 +102,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
       schedule[format(day, 'yyyy-MM-dd')] = [];
     });
 
-    const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM"];
+    const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
     const courseIds = selectedCourses.map(c => c.id);
     let courseLastScheduled: Record<string, number> = {};
     courseIds.forEach(id => courseLastScheduled[id] = -1);
@@ -118,29 +117,31 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
             let minLastScheduled = Infinity;
             
             // Find the course that was scheduled least recently and still has lessons
-            courseIds.forEach(id => {
-                if (courseQueues[id].length > 0 && courseLastScheduled[id] < minLastScheduled) {
-                    minLastScheduled = courseLastScheduled[id];
-                    nextCourseId = id;
-                }
-            });
+            const availableCourses = courseIds.filter(id => courseQueues[id].length > 0);
+            if (availableCourses.length === 0) break; // No more lessons to schedule
 
-            if (nextCourseId) {
-                const lesson = courseQueues[nextCourseId].shift()!;
-                schedule[dayString].push({
-                    lessonId: lesson.id,
-                    courseId: lesson.courseId,
-                    title: lesson.title,
-                    time: studyTimes[i % studyTimes.length],
-                });
-                courseLastScheduled[nextCourseId] = lessonIndex++;
+            let leastRecentId = availableCourses[0];
+            for (const courseId of availableCourses) {
+                if(courseLastScheduled[courseId] < courseLastScheduled[leastRecentId]) {
+                    leastRecentId = courseId;
+                }
             }
+            nextCourseId = leastRecentId;
+            
+            const lesson = courseQueues[nextCourseId].shift()!;
+            schedule[dayString].push({
+                lessonId: lesson.id,
+                courseId: lesson.courseId,
+                title: lesson.title,
+                time: studyTimes[schedule[dayString].length % studyTimes.length],
+            });
+            courseLastScheduled[nextCourseId] = lessonIndex++;
         }
     });
 
     // Clean up empty days from schedule object
     Object.keys(schedule).forEach(day => {
-      if(schedule[day].length === 0) {
+      if(!schedule[day] || schedule[day].length === 0) {
         delete schedule[day];
       }
     });
@@ -154,6 +155,8 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
+  const [rangeSelection, setRangeSelection] = useState<Record<string, { start: string, end: string }>>({});
+
 
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
@@ -192,6 +195,42 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         delete newSelected[course.id];
       }
       return newSelected;
+    });
+  };
+
+  const handleRangeInputChange = (courseId: string, field: 'start' | 'end', value: string) => {
+    setRangeSelection(prev => ({
+        ...prev,
+        [courseId]: {
+            ...prev[courseId],
+            [field]: value
+        }
+    }));
+  };
+
+  const handleSelectRange = (course: Course) => {
+    const range = rangeSelection[course.id] || { start: '', end: '' };
+    const start = parseInt(range.start, 10);
+    const end = parseInt(range.end, 10);
+
+    if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
+        toast({
+            title: 'Invalid Range',
+            description: `Please enter a valid range between 1 and ${course.lessons.length}.`,
+            variant: 'destructive'
+        });
+        return;
+    }
+
+    const lessonsToSelect = course.lessons.slice(start - 1, end).map(l => l.id);
+    setSelectedLessons(prev => {
+        const currentSelection = new Set(prev[course.id] || []);
+        lessonsToSelect.forEach(id => currentSelection.add(id));
+        return { ...prev, [course.id]: Array.from(currentSelection) };
+    });
+    toast({
+        title: 'Range Selected',
+        description: `Selected lessons ${start} to ${end} for ${course.title}.`,
     });
   };
   
@@ -289,6 +328,30 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="mt-4 ml-8 pr-4 space-y-2">
+                                        <Label className="text-xs font-semibold">Select Range</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input 
+                                                type="number" 
+                                                placeholder="Start" 
+                                                className="h-8"
+                                                value={rangeSelection[course.id]?.start || ''}
+                                                onChange={(e) => handleRangeInputChange(course.id, 'start', e.target.value)}
+                                                min="1"
+                                                max={course.lessons.length}
+                                            />
+                                            <Input 
+                                                type="number" 
+                                                placeholder="End" 
+                                                className="h-8"
+                                                value={rangeSelection[course.id]?.end || ''}
+                                                onChange={(e) => handleRangeInputChange(course.id, 'end', e.target.value)}
+                                                min="1"
+                                                max={course.lessons.length}
+                                            />
+                                            <Button type="button" size="sm" variant="outline" onClick={() => handleSelectRange(course)}>Select</Button>
+                                        </div>
+                                    </div>
                                 </AccordionContent>
                             </AccordionItem>
                         )
@@ -298,64 +361,78 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
 
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg">2. Set Preferences</h3>
-                <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div>
-                        <Label>Date Range</Label>
-                         <Popover>
-                            <PopoverTrigger asChild>
-                            <Button
-                                id="date"
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !dateRange?.from && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                dateRange.to ? (
-                                    <>
-                                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                                    {format(dateRange.to, "LLL dd, y")}
-                                    </>
-                                ) : (
-                                    format(dateRange.from, "LLL dd, y")
-                                )
-                                ) : (
-                                <span>Pick a date range</span>
-                                )}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dateRange?.from}
-                                    selected={dateRange ?? { from: undefined, to: undefined }}
-                                    onSelect={(range) => form.setValue('dateRange', range as DateRange)}
-                                    numberOfMonths={2}
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
-                        {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
-                    </div>
+                <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
+                            <CalendarDays className="h-6 w-6 text-primary" />
+                             <div>
+                                <CardTitle className="text-base">Date Range</CardTitle>
+                                <CardDescription className="text-xs">Pick a start and end date for your plan.</CardDescription>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-4 pt-0">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dateRange?.from && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                    dateRange.to ? (
+                                        <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                        </>
+                                    ) : (
+                                        format(dateRange.from, "LLL dd, y")
+                                    )
+                                    ) : (
+                                    <span>Pick a date range</span>
+                                    )}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dateRange?.from}
+                                        selected={dateRange ?? { from: undefined, to: undefined }}
+                                        onSelect={(range) => form.setValue('dateRange', range as DateRange)}
+                                        numberOfMonths={2}
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                            {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
+                            {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
+                        </CardContent>
+                    </Card>
 
-                    <div className="flex items-center space-x-4 rounded-md border p-4">
-                        <div className="flex-1 space-y-1">
-                            <Label htmlFor="isLazy" className="font-semibold">Relaxed Pace</Label>
-                            <p className="text-sm text-muted-foreground">Prefer a more spread-out schedule with rest days?</p>
-                        </div>
-                        <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
-                    </div>
+                     <Card>
+                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
+                            <Turtle className="h-6 w-6 text-primary" />
+                            <div>
+                                <CardTitle className="text-base">Relaxed Pace</CardTitle>
+                                <CardDescription className="text-xs">Prefer a more spread-out schedule with rest days?</CardDescription>
+                            </div>
+                            <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} className="ml-auto"/>
+                        </CardHeader>
+                    </Card>
 
-                     <div className="flex items-center space-x-4 rounded-md border p-4">
-                        <div className="flex-1 space-y-1">
-                            <Label htmlFor="prefersMultipleLessons" className="font-semibold">Multiple Lessons Per Day</Label>
-                            <p className="text-sm text-muted-foreground">Allow scheduling multiple lessons from the same course on one day?</p>
-                        </div>
-                        <Switch id="prefersMultipleLessons" checked={form.watch('prefersMultipleLessons')} onCheckedChange={(checked) => form.setValue('prefersMultipleLessons', checked)} />
-                    </div>
+                    <Card>
+                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
+                            <FastForward className="h-6 w-6 text-primary" />
+                             <div>
+                                <CardTitle className="text-base">Multiple Daily Lessons</CardTitle>
+                                <CardDescription className="text-xs">Allow scheduling multiple lessons from the same course on one day?</CardDescription>
+                            </div>
+                            <Switch id="prefersMultipleLessons" checked={form.watch('prefersMultipleLessons')} onCheckedChange={(checked) => form.setValue('prefersMultipleLessons', checked)} className="ml-auto"/>
+                        </CardHeader>
+                    </Card>
                 </form>
             </div>
         </div>
@@ -386,7 +463,7 @@ export default function SchedulerPage() {
     const [watchedLessons, setWatchedLessons] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [isDownloading, setIsDownloading] = useState(false);
-    const [isDeleting, startDeleteTransition] = useTransition();
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const sortedScheduleDays = useMemo(() => {
         if (!schedule) return [];
@@ -452,15 +529,16 @@ export default function SchedulerPage() {
     
     const handleDeleteSchedule = async () => {
         if (!currentUser) return;
-        startDeleteTransition(async () => {
-            try {
-                await deleteScheduleAction(currentUser.id);
-                setSchedule(null);
-                toast({ title: 'Schedule Deleted', description: 'Your schedule has been removed.' });
-            } catch (error) {
-                 toast({ title: 'Error', description: 'Could not delete the schedule.', variant: 'destructive' });
-            }
-        });
+        setIsDeleting(true);
+        try {
+            await deleteScheduleAction(currentUser.id);
+            setSchedule(null);
+            toast({ title: 'Schedule Deleted', description: 'Your schedule has been removed.' });
+        } catch (error) {
+             toast({ title: 'Error', description: 'Could not delete the schedule.', variant: 'destructive' });
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const handleDownloadPdf = async () => {
