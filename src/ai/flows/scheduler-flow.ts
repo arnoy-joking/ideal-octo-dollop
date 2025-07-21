@@ -8,35 +8,10 @@
  * lessons, only the subject distribution for each day.
  *
  * - generateStudySchedulePlan - A function that creates the high-level study plan.
- * - GenerateSchedulePlanInput - The input type for the function.
- * - CoursePlan - The return type for the function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
-
-const CourseInfoSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  lessons: z.array(z.object({ id: z.string(), title: z.string() })),
-});
-
-export const GenerateSchedulePlanInputSchema = z.object({
-  courses: z.array(CourseInfoSchema).describe("A list of courses the user wants to schedule."),
-  startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
-  endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
-  isLazy: z.boolean().describe("User self-identifies as lazy. This implies more breaks and fewer lessons per day."),
-});
-export type GenerateSchedulePlanInput = z.infer<typeof GenerateSchedulePlanInputSchema>;
-
-// The AI's output is a high-level plan mapping dates to courses.
-// It does NOT determine the number of lessons per day.
-export const CoursePlanSchema = z.record(
-    z.string().describe("A date string in YYYY-MM-DD format."),
-    z.array(z.string()).describe("An array of unique course IDs to be studied on this date. This determines subject variety.")
-).describe("A high-level plan mapping dates to a list of unique course IDs for study on that day. Rest days should have an empty array.");
-export type CoursePlan = z.infer<typeof CoursePlanSchema>;
-
+import { GenerateSchedulePlanInputSchema, CoursePlanSchema, type GenerateSchedulePlanInput, type CoursePlan } from '@/lib/types';
 
 const schedulerPrompt = ai.definePrompt({
     name: 'schedulerPlannerPrompt',
