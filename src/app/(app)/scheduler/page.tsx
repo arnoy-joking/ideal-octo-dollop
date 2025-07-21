@@ -101,12 +101,19 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
 
-  const flatSelectedLessons = useMemo(() => {
-    return Object.values(selectedLessons).flat();
-  }, [selectedLessons]);
+  const selectedCoursesForWorker = useMemo(() => {
+     return Object.entries(selectedLessons).map(([courseId, lessons]) => {
+        const originalCourse = courses.find(c => c.id === courseId)!;
+        return {
+            id: originalCourse.id,
+            title: originalCourse.title,
+            lessons: lessons.map(l => ({ id: l.id, title: l.title }))
+        }
+    });
+  }, [selectedLessons, courses]);
 
   const onSubmit = (data: ScheduleRequestData) => {
-    if (flatSelectedLessons.length === 0) {
+    if (selectedCoursesForWorker.length === 0) {
       toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
       return;
     }
@@ -117,10 +124,12 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
 
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
         worker.onmessage = (event) => {
-            if(event.data.error) {
+            if (event.data && event.data.error) {
                 reject(new Error(event.data.error));
-            } else {
+            } else if (event.data) {
                 resolve(event.data);
+            } else {
+                reject(new Error('Worker returned an empty response.'));
             }
             worker.terminate();
         };
@@ -130,14 +139,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         };
 
         const workerInput: GenerateScheduleInput = {
-            courses: Object.entries(selectedLessons).map(([courseId, lessons]) => {
-                const originalCourse = courses.find(c => c.id === courseId)!;
-                return {
-                    id: originalCourse.id,
-                    title: originalCourse.title,
-                    lessons: lessons.map(l => ({ id: l.id, title: l.title }))
-                }
-            }),
+            courses: selectedCoursesForWorker,
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
             isLazy: data.isLazy,
@@ -291,7 +293,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         <DialogFooter className="pt-4 border-t">
           <div className="flex items-center text-sm text-muted-foreground mr-auto">
             <Info className="mr-2 h-4 w-4" />
-            {flatSelectedLessons.length} lessons selected
+            {selectedCoursesForWorker.flatMap(c => c.lessons).length} lessons selected
           </div>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>

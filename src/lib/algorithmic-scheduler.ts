@@ -1,4 +1,4 @@
-import { eachDayOfInterval, format, parseISO, parse } from 'date-fns';
+import { eachDayOfInterval, format, parse, parseISO } from 'date-fns';
 import type { GenerateScheduleInput, GenerateScheduleOutput, Lesson } from './types';
 
 interface LessonToSchedule extends Omit<Lesson, 'duration' | 'videoId' | 'pdfUrl'> {
@@ -7,7 +7,15 @@ interface LessonToSchedule extends Omit<Lesson, 'duration' | 'videoId' | 'pdfUrl
 }
 
 export function generateScheduleAlgorithmically(input: GenerateScheduleInput): GenerateScheduleOutput {
-    const { lessons, startDate, endDate, isLazy, prefersMultipleLessons } = input;
+    const { courses, startDate, endDate, isLazy, prefersMultipleLessons } = input;
+    
+    // Flatten lessons from all selected courses into a single array
+    const lessons: LessonToSchedule[] = courses.flatMap(course => 
+        course.lessons.map(lesson => ({
+            ...lesson,
+            courseId: course.id,
+        }))
+    );
 
     const days = eachDayOfInterval({
         start: parseISO(startDate),
@@ -20,11 +28,15 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
 
     // 1. Group lessons by course and create queues
     const courseQueues: Record<string, LessonToSchedule[]> = {};
-    lessons.forEach(lesson => {
-        if (!courseQueues[lesson.courseId]) {
-            courseQueues[lesson.courseId] = [];
-        }
-        courseQueues[lesson.courseId].push(lesson);
+    courses.forEach(course => {
+        // Find lessons for this course and ensure they are sorted correctly
+        const courseLessons = lessons
+            .filter(l => l.courseId === course.id)
+            .sort((a, b) => {
+                const originalCourse = courses.find(c => c.id === a.courseId)!;
+                return originalCourse.lessons.findIndex(l => l.id === a.id) - originalCourse.lessons.findIndex(l => l.id === b.id);
+            });
+        courseQueues[course.id] = courseLessons;
     });
     
     const courseIds = Object.keys(courseQueues);
@@ -40,9 +52,9 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
     // 2. Calculate ideal lessons per day and max slots
     let lessonsPerDay = Math.ceil(totalLessons / days.length);
     if (isLazy) {
-        lessonsPerDay = Math.max(1, Math.floor(lessonsPerDay * 0.8));
+        lessonsPerDay = Math.max(1, Math.floor(lessonsPerDay * 0.7));
     }
-    const maxSlotsPerDay = prefersMultipleLessons ? Math.min(6, lessonsPerDay + 2) : lessonsPerDay;
+    const maxSlotsPerDay = prefersMultipleLessons ? Math.min(6, lessonsPerDay + 2) : Math.max(1, lessonsPerDay);
 
     let totalScheduled = 0;
     let dayIndex = 0;
@@ -62,25 +74,24 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
         let nextCourseId: string | undefined = undefined;
         let minLastScheduled = Infinity;
         
-        courseIds.forEach(id => {
-            if (courseQueues[id].length > 0) {
-                 // Don't schedule the same course twice in a row on the same day unless it's the only option left
+        // Sort courses by least recently used to ensure variety
+        const sortedCourses = [...courseIds].sort((a, b) => courseLastScheduled[a] - courseLastScheduled[b]);
+
+        for (const courseId of sortedCourses) {
+            if (courseQueues[courseId].length > 0) {
                 const lastCourseOnThisDay = schedule[dayString][schedule[dayString].length - 1]?.courseId;
-                if (!prefersMultipleLessons && lastCourseOnThisDay === id) {
-                    return;
+                if (!prefersMultipleLessons && lastCourseOnThisDay === courseId && courseIds.some(id => id !== courseId && courseQueues[id].length > 0)) {
+                    continue;
                 }
-                
-                if (courseLastScheduled[id] < minLastScheduled) {
-                    minLastScheduled = courseLastScheduled[id];
-                    nextCourseId = id;
-                }
+                nextCourseId = courseId;
+                break;
             }
-        });
+        }
         
-        // Failsafe if the preferred course logic filters everything out
         if (!nextCourseId) {
              nextCourseId = courseIds.find(id => courseQueues[id].length > 0);
         }
+
 
         if (nextCourseId) {
             const lessonToSchedule = courseQueues[nextCourseId].shift();
@@ -97,7 +108,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
                 totalScheduled++;
             }
         } else {
-            // No more lessons to schedule
             break;
         }
 
