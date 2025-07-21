@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parse, isToday, parseISO, eachDayOfInterval, differenceInCalendarDays } from 'date-fns';
+import { format, parse, isToday, parseISO, eachDayOfInterval } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -45,7 +45,7 @@ type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 type LessonToSchedule = Lesson & { courseId: string };
 
 function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
-    const { dateRange, isLazy } = data;
+    const { dateRange, isLazy, prefersMultipleLessons } = data;
     const { from: startDate, to: endDate } = dateRange;
     
     const courseQueues: Record<string, LessonToSchedule[]> = {};
@@ -54,30 +54,31 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     });
     
     const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
-    let studyDays: Date[] = [...allAvailableDays];
+    if (allAvailableDays.length === 0) return {};
 
+    let studyDays: Date[] = [...allAvailableDays];
     const totalLessons = selectedCourses.reduce((acc, course) => acc + course.lessons.length, 0);
 
     if (isLazy) {
         const totalDays = allAvailableDays.length;
         if (totalDays > 2) {
-            const restDaysCount = Math.max(1, Math.floor(totalDays / 4)); // e.g., ~1 rest day every 4 days
+            const restDaysCount = Math.max(1, Math.floor(totalDays / 4));
             const studyDayCount = totalDays - restDaysCount;
-            if (studyDayCount >= totalLessons && studyDayCount > 0) { // Only add rest days if there's enough time
+            if (studyDayCount > 0 && totalLessons <= studyDayCount) {
                 const restInterval = Math.floor(totalDays / (restDaysCount + 1));
                  studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0 || (index + 1) > studyDayCount );
             }
         }
     }
     
-    if (studyDays.length === 0 && allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
+    if (studyDays.length === 0) studyDays = [allAvailableDays[0]];
     if (studyDays.length === 0) return {};
     
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
 
     const dailyQuotas: Record<string, number> = {};
-    studyDays.forEach((day) => {
+    studyDays.forEach((day, index) => {
         const dayString = format(day, 'yyyy-MM-dd');
         dailyQuotas[dayString] = lessonsPerDay;
         if (remainingLessons > 0) {
@@ -114,7 +115,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
                 }
             }
             
-            const lesson = courseQueues[nextCourseId].shift()!;
+            const lesson = courseQueues[nextCourseId].shift();
             if (lesson) {
                 schedule[dayString].push({
                     lessonId: lesson.id,
@@ -143,10 +144,14 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
 
+  // State for interval selection inputs
+  const [intervalInputs, setIntervalInputs] = useState<Record<string, { from: string; to: string }>>({});
+
+
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
-      dateRange: { from: undefined, to: undefined },
+      dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 7)) },
       isLazy: false,
       prefersMultipleLessons: false,
     },
@@ -170,7 +175,51 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       return newState;
     });
   };
-  
+
+  const handleIntervalInputChange = (courseId: string, field: 'from' | 'to', value: string) => {
+    setIntervalInputs(prev => ({
+      ...prev,
+      [courseId]: {
+        ...prev[courseId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSelectInterval = (courseId: string) => {
+    const course = courses.find(c => c.id === courseId);
+    if (!course) return;
+
+    const { from, to } = intervalInputs[courseId] || { from: '', to: '' };
+    const fromIndex = parseInt(from, 10);
+    const toIndex = parseInt(to, 10);
+
+    if (isNaN(fromIndex) || isNaN(toIndex) || fromIndex <= 0 || toIndex > course.lessons.length || fromIndex > toIndex) {
+      toast({
+        title: "Invalid Range",
+        description: `Please enter a valid range from 1 to ${course.lessons.length}.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const lessonsToSelect = course.lessons.slice(fromIndex - 1, toIndex).map(l => l.id);
+    
+    setSelectedLessons(prev => {
+        const currentLessons = new Set(prev[courseId] || []);
+        lessonsToSelect.forEach(id => currentLessons.add(id));
+        return {
+            ...prev,
+            [courseId]: Array.from(currentLessons)
+        };
+    });
+
+    toast({
+        title: "Lessons Selected",
+        description: `Selected lessons from ${fromIndex} to ${toIndex} for "${course.title}".`
+    })
+  };
+
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
     return courses
       .map(course => ({
@@ -239,7 +288,24 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                            </AccordionTrigger>
                             <AccordionContent>
                                 <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4">
-                                    {course.lessons.map((lesson) => {
+                                    <div className="flex items-center gap-2 mb-4 p-2 bg-muted/50 rounded-md">
+                                        <Input
+                                            type="number"
+                                            placeholder="From"
+                                            className="h-8 w-20"
+                                            value={intervalInputs[course.id]?.from || ''}
+                                            onChange={e => handleIntervalInputChange(course.id, 'from', e.target.value)}
+                                        />
+                                        <Input
+                                            type="number"
+                                            placeholder="To"
+                                            className="h-8 w-20"
+                                            value={intervalInputs[course.id]?.to || ''}
+                                            onChange={e => handleIntervalInputChange(course.id, 'to', e.target.value)}
+                                        />
+                                        <Button size="sm" onClick={() => handleSelectInterval(course.id)}>Select</Button>
+                                    </div>
+                                    {course.lessons.map((lesson, index) => {
                                         const isSelected = selectedLessons[course.id]?.includes(lesson.id) || false;
                                         return (
                                             <div key={lesson.id} className="flex items-center space-x-2">
@@ -249,7 +315,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                                     onCheckedChange={() => toggleLesson(course.id, lesson.id)}
                                                 />
                                                 <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer">
-                                                    {lesson.title}
+                                                   <span className="text-muted-foreground w-6 inline-block mr-2">[{index + 1}]</span>{lesson.title}
                                                 </label>
                                             </div>
                                         );
