@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
@@ -117,7 +116,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    const worker = new Worker(new URL('../../../workers/scheduler.worker.ts', import.meta.url));
+    const worker = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
 
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
         worker.onmessage = (event) => {
@@ -129,7 +128,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             worker.terminate();
         };
 
-        const workerInput: Omit<GenerateScheduleInput, 'customInstructions'> = {
+        const workerInput: GenerateScheduleInput = {
             lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
@@ -488,7 +487,7 @@ export default function SchedulerPage() {
                                     </CardHeader>
                                     <CardContent>
                                         <div className="relative pl-6">
-                                            <div className="absolute left-10 top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
+                                            <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
                                             <ul className="space-y-4">
                                                 {schedule![day].map((lesson, index) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);

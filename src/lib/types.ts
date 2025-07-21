@@ -65,7 +65,7 @@ export interface MonthlyGoal {
 }
 
 
-// Types for AI Scheduler
+// Types for Scheduler
 export const ScheduledLessonSchema = z.object({
   lessonId: z.string(),
   courseId: z.string(),
@@ -93,6 +93,5 @@ export const GenerateScheduleInputSchema = z.object({
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
   isLazy: z.boolean().describe("User self-identifies as lazy. This implies longer breaks and fewer lessons per day."),
   prefersMultipleLessons: z.boolean().describe("User is okay with scheduling multiple lessons from the same course on the same day."),
-  customInstructions: z.string().optional().describe("Any additional custom instructions or constraints from the user, like 'I am free in the evenings' or 'I have a job on Tuesdays'."),
 });
 export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
