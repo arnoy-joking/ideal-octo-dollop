@@ -12,7 +12,7 @@ import html2canvas from 'html2canvas';
 
 import type { Course, Lesson, ScheduledLesson, Schedule, GenerateScheduleInput } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
-import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/app/actions/scheduler-actions';
+import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
 import { useUser } from '@/context/user-context';
 
@@ -116,7 +116,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    const worker = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+    const worker = new Worker(new URL('../../../workers/scheduler.worker.ts', import.meta.url));
 
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
         worker.onmessage = (event) => {
@@ -171,7 +171,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
-          <DialogTitle>Study Scheduler</DialogTitle>
+          <DialogTitle>Scheduler</DialogTitle>
           <DialogDescription>Select lessons, set your preferences, and generate a smart study plan for you.</DialogDescription>
         </DialogHeader>
 
@@ -458,7 +458,7 @@ export default function SchedulerPage() {
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                     <div>
                         <h1 className="text-4xl font-headline font-bold text-primary">Scheduler</h1>
-                        <p className="text-muted-foreground mt-2">Your personalized, intelligent study plan.</p>
+                        <p className="text-muted-foreground mt-2">Your personalized study plan.</p>
                     </div>
                     <div className="flex items-center gap-2">
                          {schedule && Object.keys(schedule).length > 0 && (
@@ -486,7 +486,7 @@ export default function SchedulerPage() {
                                         <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                       <div className="relative pl-6">
+                                        <div className="relative pl-6">
                                             <div className="absolute left-10 top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
                                             <ul className="space-y-4">
                                                 {schedule![day].map((lesson, index) => {
