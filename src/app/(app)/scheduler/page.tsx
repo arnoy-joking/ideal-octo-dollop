@@ -116,7 +116,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    const worker = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+    const worker = new Worker(new URL('../../../workers/scheduler.worker.ts', import.meta.url));
 
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
         worker.onmessage = (event) => {
