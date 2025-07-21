@@ -10,7 +10,7 @@ import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import type { Course, Lesson, ScheduledLesson, Schedule, GenerateScheduleInput } from '@/lib/types';
+import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -41,74 +41,84 @@ const scheduleRequestSchema = z.object({
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
+type LessonToSchedule = Lesson & { courseId: string };
 
-// A new, simpler, and more reliable scheduling algorithm implemented directly.
-function generateSimpleSchedule(input: GenerateScheduleInput): Schedule {
-    const { courses, startDate, endDate, isLazy } = input;
+function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
+    const { dateRange, isLazy } = data;
+    const { from: startDate, to: endDate } = dateRange;
     
-    // 1. Flatten all selected lessons into a single list, preserving order.
-    const allLessons: (Lesson & { courseId: string, courseOrder: number })[] = [];
-    courses.forEach(course => {
-        const originalCourse = courses.find(c => c.id === course.id)!;
-        course.lessons.forEach((lesson, lessonIndex) => {
-            allLessons.push({
-                ...lesson,
-                id: lesson.id,
-                courseId: course.id,
-                courseOrder: originalCourse.order, // Use original course order
-            });
-        });
+    // 1. Create a correctly ordered lesson queue for each selected course
+    const courseQueues: Record<string, LessonToSchedule[]> = {};
+    selectedCourses.forEach(course => {
+        courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
     });
-
-    // This sort is the key to preserving sequence.
-    // It sorts by the original course order, then by the lesson's position in that course.
-    allLessons.sort((a, b) => {
-        if (a.courseOrder !== b.courseOrder) {
-            return a.courseOrder - b.courseOrder;
-        }
-        const course = courses.find(c => c.id === a.courseId)!;
-        return course.lessons.findIndex(l => l.id === a.id) - course.lessons.findIndex(l => l.id === b.id);
-    });
-
+    
+    const allLessons = selectedCourses.flatMap(c => c.lessons.map(l => ({ ...l, courseId: c.id })));
     const totalLessons = allLessons.length;
     if (totalLessons === 0) return {};
 
-    // 2. Determine study days.
-    const availableDays = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) });
-    let studyDays = availableDays;
-    if (isLazy) {
-      // Remove roughly 1 in 5 days for rest, ensuring at least one study day.
-      const restDays = Math.floor(availableDays.length / 5);
-      if (availableDays.length - restDays > 0) {
-        studyDays = availableDays.filter((_, i) => (i + 1) % 5 !== 0);
-      }
+    // 2. Determine study days, accounting for 'isLazy'
+    const availableDays = eachDayOfInterval({ start: startDate, end: endDate });
+    let studyDays = [...availableDays];
+    if (isLazy && availableDays.length > 3) {
+        const restDayCount = Math.max(1, Math.floor(availableDays.length / 5));
+        const studyDayCount = availableDays.length - restDayCount;
+        // Only insert rest days if it doesn't make it impossible to finish
+        if (studyDayCount >= totalLessons || studyDayCount > 0) {
+            const tempStudyDays = [];
+            const restInterval = Math.floor(availableDays.length / (restDayCount + 1));
+            if (restInterval > 0) {
+                for(let i=0; i<availableDays.length; i++) {
+                    if ((i + 1) % (restInterval + 1) !== 0) {
+                        tempStudyDays.push(availableDays[i]);
+                    }
+                }
+                studyDays = tempStudyDays.slice(0, studyDayCount);
+            }
+        }
     }
-    
-    if(studyDays.length === 0) studyDays.push(availableDays[0]); // Ensure at least one day if range is short
+    if(studyDays.length === 0 && availableDays.length > 0) studyDays.push(availableDays[0]);
 
-    // 3. Distribute lessons evenly.
-    const lessonsPerDay = Math.ceil(totalLessons / studyDays.length);
+    // 3. Distribute lessons evenly across study days
+    const lessonsPerDay = Math.ceil(totalLessons / Math.max(1, studyDays.length));
     const schedule: Schedule = {};
-    let lessonIndex = 0;
+    const courseLastScheduled: Record<string, number> = {};
+    selectedCourses.forEach(c => { courseLastScheduled[c.id] = -1; });
+
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
+    let lessonIndex = 0;
 
     studyDays.forEach(day => {
         const dayString = format(day, 'yyyy-MM-dd');
         schedule[dayString] = [];
         for (let i = 0; i < lessonsPerDay; i++) {
             if (lessonIndex < totalLessons) {
-                const lesson = allLessons[lessonIndex];
-                schedule[dayString].push({
-                    lessonId: lesson.id,
-                    courseId: lesson.courseId,
-                    title: lesson.title,
-                    time: studyTimes[i % studyTimes.length],
+                 // Find the course that was scheduled least recently
+                let nextCourseId = '';
+                let minLastScheduled = Infinity;
+
+                Object.keys(courseQueues).forEach(courseId => {
+                    if (courseQueues[courseId].length > 0 && (courseLastScheduled[courseId] < minLastScheduled)) {
+                        minLastScheduled = courseLastScheduled[courseId];
+                        nextCourseId = courseId;
+                    }
                 });
-                lessonIndex++;
+
+                if (nextCourseId && courseQueues[nextCourseId].length > 0) {
+                    const lesson = courseQueues[nextCourseId].shift()!;
+                    schedule[dayString].push({
+                        lessonId: lesson.id,
+                        courseId: lesson.courseId,
+                        title: lesson.title,
+                        time: studyTimes[i % studyTimes.length],
+                    });
+                    courseLastScheduled[nextCourseId] = lessonIndex;
+                    lessonIndex++;
+                }
             }
         }
     });
-
+    
     return schedule;
 }
 
@@ -180,16 +190,10 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    // Artificial delay to give user feedback
+    // Artificial delay to give user feedback as generation is now very fast
     setTimeout(() => {
       try {
-        const generationInput: GenerateScheduleInput = {
-            ...data,
-            courses: selectedCoursesForGeneration,
-            startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
-            endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-        };
-        const result = generateSimpleSchedule(generationInput);
+        const result = generateSchedule(data, selectedCoursesForGeneration);
         
         if (result && Object.keys(result).length > 0) {
           onScheduleGenerated(result);
@@ -314,7 +318,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                     <div className="flex items-center space-x-4 rounded-md border p-4">
                         <div className="flex-1 space-y-1">
                             <Label htmlFor="isLazy" className="font-semibold">Relaxed Pace</Label>
-                            <p className="text-sm text-muted-foreground">Prefer a more spread-out, relaxed schedule?</p>
+                            <p className="text-sm text-muted-foreground">Prefer a more spread-out schedule?</p>
                         </div>
                         <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
                     </div>
@@ -363,7 +367,7 @@ export default function SchedulerPage() {
         return Object.keys(schedule).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     }, [schedule]);
 
-    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.id])), [courses]);
+    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -542,6 +546,7 @@ export default function SchedulerPage() {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);
                                                     const lessonTime = parseFlexibleTime(lesson.time);
                                                     const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';
+                                                    const course = courseMap.get(lesson.courseId);
 
                                                     return (
                                                         <li key={lesson.lessonId} className="relative flex items-start gap-4">
@@ -558,7 +563,7 @@ export default function SchedulerPage() {
                                                                     {isWatched && <CheckCircle className="h-5 w-5 text-green-700 bg-background rounded-full" />}
                                                                 </button>
                                                                 <p className={cn("font-semibold", isWatched && "line-through text-muted-foreground")}>{lesson.title}</p>
-                                                                <p className={cn("text-sm text-muted-foreground", isWatched && "line-through")}>{courseMap.get(lesson.courseId)?.title}</p>
+                                                                {course && <p className={cn("text-sm text-muted-foreground", isWatched && "line-through")}>{course.title}</p>}
                                                             </div>
                                                         </li>
                                                     );
@@ -582,5 +587,4 @@ export default function SchedulerPage() {
             </div>
         </main>
     );
-
-    
+}
