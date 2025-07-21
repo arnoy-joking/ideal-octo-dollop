@@ -189,20 +189,21 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                         const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
                         return (
                             <AccordionItem value={course.id} key={course.id}>
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-4 w-full">
+                                <div className="flex items-center w-full">
+                                    <div className="p-4 pl-0">
                                         <Checkbox
                                             id={`select-all-${course.id}`}
                                             checked={allCourseLessonsSelected}
                                             onCheckedChange={(checked) => toggleCourse(course, !!checked)}
-                                            onClick={(e) => e.stopPropagation()}
                                             aria-label={`Select all lessons from ${course.title}`}
                                         />
-                                        <span>{course.title}</span>
                                     </div>
-                                </AccordionTrigger>
+                                    <AccordionTrigger className="w-full">
+                                        <span>{course.title}</span>
+                                    </AccordionTrigger>
+                                </div>
                                 <AccordionContent>
-                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-4">
+                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8">
                                         {course.lessons.map(lesson => (
                                             <div key={lesson.id} className="flex items-center space-x-2">
                                                 <Checkbox
