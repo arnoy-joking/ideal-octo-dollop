@@ -144,10 +144,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
 
-  // State for interval selection inputs
-  const [intervalInputs, setIntervalInputs] = useState<Record<string, { from: string; to: string }>>({});
-
-
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
@@ -176,48 +172,31 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
 
-  const handleIntervalInputChange = (courseId: string, field: 'from' | 'to', value: string) => {
-    setIntervalInputs(prev => ({
-      ...prev,
-      [courseId]: {
-        ...prev[courseId],
-        [field]: value
-      }
-    }));
+  const handleSelectAll = (courseId: string, shouldSelect: boolean) => {
+    setSelectedLessons(prev => {
+        const newState = { ...prev };
+        if (shouldSelect) {
+            const course = courses.find(c => c.id === courseId);
+            if (course) {
+                newState[courseId] = course.lessons.map(l => l.id);
+            }
+        } else {
+            delete newState[courseId];
+        }
+        return newState;
+    });
   };
 
-  const handleSelectInterval = (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return;
-
-    const { from, to } = intervalInputs[courseId] || { from: '', to: '' };
-    const fromIndex = parseInt(from, 10);
-    const toIndex = parseInt(to, 10);
-
-    if (isNaN(fromIndex) || isNaN(toIndex) || fromIndex <= 0 || toIndex > course.lessons.length || fromIndex > toIndex) {
-      toast({
-        title: "Invalid Range",
-        description: `Please enter a valid range from 1 to ${course.lessons.length}.`,
-        variant: "destructive"
+  const handleFillGap = (course: Course, startIndex: number, endIndex: number) => {
+      const lessonsToSelect = course.lessons.slice(startIndex, endIndex + 1).map(l => l.id);
+      setSelectedLessons(prev => {
+          const currentSelected = new Set(prev[course.id] || []);
+          lessonsToSelect.forEach(id => currentSelected.add(id));
+          return {
+              ...prev,
+              [course.id]: Array.from(currentSelected)
+          };
       });
-      return;
-    }
-
-    const lessonsToSelect = course.lessons.slice(fromIndex - 1, toIndex).map(l => l.id);
-    
-    setSelectedLessons(prev => {
-        const currentLessons = new Set(prev[courseId] || []);
-        lessonsToSelect.forEach(id => currentLessons.add(id));
-        return {
-            ...prev,
-            [courseId]: Array.from(currentLessons)
-        };
-    });
-
-    toast({
-        title: "Lessons Selected",
-        description: `Selected lessons from ${fromIndex} to ${toIndex} for "${course.title}".`
-    })
   };
 
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
@@ -281,32 +260,59 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Select Lessons</h3>
                 <Accordion type="multiple" className="w-full">
-                    {courses.map(course => (
+                    {courses.map(course => {
+                        const courseSelectedLessons = selectedLessons[course.id] || [];
+                        const isAllSelected = courseSelectedLessons.length === course.lessons.length;
+                        const isIndeterminate = courseSelectedLessons.length > 0 && !isAllSelected;
+
+                        let gapToFill: { start: number; end: number } | null = null;
+                        if (courseSelectedLessons.length >= 2) {
+                            const selectedIndices = courseSelectedLessons
+                                .map(id => course.lessons.findIndex(l => l.id === id))
+                                .filter(index => index !== -1)
+                                .sort((a, b) => a - b);
+                            
+                            const firstIndex = selectedIndices[0];
+                            const lastIndex = selectedIndices[selectedIndices.length - 1];
+                            
+                            for (let i = firstIndex + 1; i < lastIndex; i++) {
+                                if (!courseSelectedLessons.includes(course.lessons[i].id)) {
+                                    gapToFill = { start: firstIndex + 1, end: lastIndex - 1 };
+                                    break;
+                                }
+                            }
+                        }
+
+                        return (
                         <AccordionItem value={course.id} key={course.id}>
-                           <AccordionTrigger>
-                                {course.title}
-                           </AccordionTrigger>
+                           <div className="flex items-center">
+                                <Checkbox
+                                    id={`select-all-${course.id}`}
+                                    checked={isAllSelected}
+                                    onCheckedChange={(checked) => handleSelectAll(course.id, !!checked)}
+                                    aria-label={`Select all lessons for ${course.title}`}
+                                    className="ml-4"
+                                />
+                               <AccordionTrigger className="flex-1 px-2">
+                                    {course.title}
+                               </AccordionTrigger>
+                           </div>
                             <AccordionContent>
-                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4">
-                                    <div className="flex items-center gap-2 mb-4 p-2 bg-muted/50 rounded-md">
-                                        <Input
-                                            type="number"
-                                            placeholder="From"
-                                            className="h-8 w-20"
-                                            value={intervalInputs[course.id]?.from || ''}
-                                            onChange={e => handleIntervalInputChange(course.id, 'from', e.target.value)}
-                                        />
-                                        <Input
-                                            type="number"
-                                            placeholder="To"
-                                            className="h-8 w-20"
-                                            value={intervalInputs[course.id]?.to || ''}
-                                            onChange={e => handleIntervalInputChange(course.id, 'to', e.target.value)}
-                                        />
-                                        <Button size="sm" onClick={() => handleSelectInterval(course.id)}>Select</Button>
+                                {gapToFill && (
+                                    <div className="px-4 py-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => handleFillGap(course, gapToFill!.start, gapToFill!.end)}
+                                        >
+                                            Fill gap ({gapToFill.end - gapToFill.start + 1} lessons)
+                                        </Button>
                                     </div>
+                                )}
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4">
                                     {course.lessons.map((lesson, index) => {
-                                        const isSelected = selectedLessons[course.id]?.includes(lesson.id) || false;
+                                        const isSelected = courseSelectedLessons.includes(lesson.id);
                                         return (
                                             <div key={lesson.id} className="flex items-center space-x-2">
                                                 <Checkbox
@@ -323,7 +329,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
-                    ))}
+                    )})}
                 </Accordion>
             </div>
 
@@ -660,3 +666,5 @@ export default function SchedulerPage() {
         </main>
     );
 }
+
+    
