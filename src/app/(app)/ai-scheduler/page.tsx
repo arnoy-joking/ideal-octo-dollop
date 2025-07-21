@@ -10,8 +10,7 @@ import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
-import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
+import type { Course, Lesson, ScheduledLesson, Schedule, GenerateScheduleInput } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/app/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -109,37 +108,57 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     return lessonsWithCourseId;
   }, [selectedLessons, courses]);
 
-  const onSubmit = async (data: ScheduleRequestData) => {
+  const onSubmit = (data: ScheduleRequestData) => {
     if (flatSelectedLessons.length === 0) {
       toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
       return;
     }
     
     setIsGenerating(true);
-    try {
-      const result = generateScheduleAlgorithmically({
-        lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
-        startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
-        endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-        isLazy: data.isLazy,
-        prefersMultipleLessons: data.prefersMultipleLessons,
-      });
 
-      if (result && Object.keys(result).length > 0) {
-        onScheduleGenerated(result);
-        toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
-        setIsOpen(false);
-        setSelectedLessons({});
-        form.reset();
-      } else {
-        toast({ title: 'Failed to Generate Schedule', description: 'Could not generate a schedule with the selected lessons and dates.', variant: 'destructive' });
-      }
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'An unexpected error occurred while generating the schedule.', variant: 'destructive' });
-    } finally {
-      setIsGenerating(false);
-    }
+    const worker = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+
+    const generationPromise = new Promise<Schedule>((resolve, reject) => {
+        worker.onmessage = (event) => {
+            resolve(event.data);
+            worker.terminate();
+        };
+        worker.onerror = (error) => {
+            reject(error);
+            worker.terminate();
+        };
+
+        const workerInput: Omit<GenerateScheduleInput, 'customInstructions'> = {
+            lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
+            startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
+            endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
+            isLazy: data.isLazy,
+            prefersMultipleLessons: data.prefersMultipleLessons,
+        };
+        worker.postMessage(workerInput);
+    });
+
+    const artificialDelay = new Promise(resolve => setTimeout(resolve, 3000));
+
+    Promise.all([generationPromise, artificialDelay])
+      .then(([result]) => {
+        if (result && Object.keys(result).length > 0) {
+          onScheduleGenerated(result);
+          toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
+          setIsOpen(false);
+          setSelectedLessons({});
+          form.reset();
+        } else {
+          toast({ title: 'Failed to Generate Schedule', description: 'Could not generate a schedule with the selected lessons and dates.', variant: 'destructive' });
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({ title: 'Error', description: 'An unexpected error occurred while generating the schedule.', variant: 'destructive' });
+      })
+      .finally(() => {
+        setIsGenerating(false);
+      });
   };
 
   return (
@@ -152,7 +171,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
-          <DialogTitle>Study Scheduler</DialogTitle>
+          <DialogTitle>Scheduler</DialogTitle>
           <DialogDescription>Select lessons, set your preferences, and generate a smart study plan for you.</DialogDescription>
         </DialogHeader>
 
@@ -278,7 +297,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   );
 }
 
-export default function AISchedulerPage() {
+export default function SchedulerPage() {
     const { currentUser, isLoading: isUserLoading } = useUser();
     const { toast } = useToast();
     const scheduleRef = useRef(null);
@@ -438,8 +457,8 @@ export default function AISchedulerPage() {
             <div className="max-w-6xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                     <div>
-                        <h1 className="text-4xl font-headline font-bold text-primary">Study Scheduler</h1>
-                        <p className="text-muted-foreground mt-2">Your personalized, intelligent study plan.</p>
+                        <h1 className="text-4xl font-headline font-bold text-primary">Scheduler</h1>
+                        <p className="text-muted-foreground mt-2">Your personalized study plan.</p>
                     </div>
                     <div className="flex items-center gap-2">
                          {schedule && Object.keys(schedule).length > 0 && (

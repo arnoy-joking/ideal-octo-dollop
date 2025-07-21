@@ -10,8 +10,7 @@ import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
-import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
+import type { Course, Lesson, ScheduledLesson, Schedule, GenerateScheduleInput } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/app/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -116,27 +115,30 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     }
     
     setIsGenerating(true);
-    
-    // Artificial delay to make it feel significant
-    const artificialDelay = new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Run generation in a timeout to avoid blocking the UI thread
+
+    const worker = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          const result = generateScheduleAlgorithmically({
+        worker.onmessage = (event) => {
+            resolve(event.data);
+            worker.terminate();
+        };
+        worker.onerror = (error) => {
+            reject(error);
+            worker.terminate();
+        };
+
+        const workerInput: Omit<GenerateScheduleInput, 'customInstructions'> = {
             lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
             isLazy: data.isLazy,
             prefersMultipleLessons: data.prefersMultipleLessons,
-          });
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      }, 0);
+        };
+        worker.postMessage(workerInput);
     });
+
+    const artificialDelay = new Promise(resolve => setTimeout(resolve, 3000));
 
     Promise.all([generationPromise, artificialDelay])
       .then(([result]) => {
@@ -484,8 +486,8 @@ export default function SchedulerPage() {
                                         <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                       <div className="relative">
-                                            <div className="absolute left-10 top-2 h-full border-l-2 border-border -translate-x-1/2"></div>
+                                       <div className="relative pl-6">
+                                            <div className="absolute left-10 top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
                                             <ul className="space-y-4">
                                                 {schedule![day].map((lesson, index) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);

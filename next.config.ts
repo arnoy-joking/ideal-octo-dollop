@@ -54,6 +54,20 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+   webpack: (config, { isServer }) => {
+    // For Web Workers
+    config.module.rules.push({
+      test: /\.worker\.ts$/,
+      use: { loader: 'worker-loader' },
+    });
+    
+    // This is required for worker-loader to work with Next.js
+     if (!isServer) {
+      config.output.globalObject = 'self';
+    }
+
+    return config;
+  },
 };
 
 export default nextConfig;
