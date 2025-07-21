@@ -1,4 +1,4 @@
-import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import { eachDayOfInterval, format, parseISO, parse } from 'date-fns';
 import type { GenerateScheduleInput, GenerateScheduleOutput, Lesson } from './types';
 
 interface LessonToSchedule extends Omit<Lesson, 'id' | 'duration' | 'videoId' | 'pdfUrl'> {
