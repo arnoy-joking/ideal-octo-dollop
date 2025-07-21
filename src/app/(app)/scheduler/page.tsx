@@ -48,7 +48,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     const { dateRange, isLazy } = data;
     const { from: startDate, to: endDate } = dateRange;
     
-    // 1. Create a correctly ordered lesson queue for each selected course
+    // Create a correctly ordered lesson queue for each selected course
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     selectedCourses.forEach(course => {
         courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
@@ -57,7 +57,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     const allLessons = selectedCourses.flatMap(c => c.lessons);
     if (allLessons.length === 0) return {};
 
-    // 2. Determine study days, accounting for 'isLazy'
+    // Determine study days, accounting for 'isLazy'
     const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
     let studyDays: Date[];
 
@@ -66,7 +66,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         const restDays = Math.max(1, Math.floor(totalDays / 4)); // ~1 rest day every 4 days
         const studyDayCount = totalDays - restDays;
 
-        if (studyDayCount < 1 && totalDays > 0) { // Ensure at least one study day if range is valid
+        if (studyDayCount < 1 && totalDays > 0) {
              studyDays = [allAvailableDays[0]];
         } else {
             const restInterval = restDays > 0 ? Math.floor(totalDays / restDays) : totalDays + 1;
@@ -82,7 +82,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     
     if (studyDays.length === 0) return {};
 
-    // 3. Distribute lessons evenly across study days
+    // Distribute lessons evenly across study days
     const totalLessons = allLessons.length;
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
@@ -114,7 +114,6 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         
         for(let i=0; i<quota; i++) {
             let nextCourseId = '';
-            let minLastScheduled = Infinity;
             
             // Find the course that was scheduled least recently and still has lessons
             const availableCourses = courseIds.filter(id => courseQueues[id].length > 0);
@@ -155,8 +154,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
-  const [rangeSelection, setRangeSelection] = useState<Record<string, { start: string, end: string }>>({});
-
 
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
@@ -198,39 +195,12 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
 
-  const handleRangeInputChange = (courseId: string, field: 'start' | 'end', value: string) => {
-    setRangeSelection(prev => ({
-        ...prev,
-        [courseId]: {
-            ...prev[courseId],
-            [field]: value
-        }
-    }));
-  };
-
-  const handleSelectRange = (course: Course) => {
-    const range = rangeSelection[course.id] || { start: '', end: '' };
-    const start = parseInt(range.start, 10);
-    const end = parseInt(range.end, 10);
-
-    if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
-        toast({
-            title: 'Invalid Range',
-            description: `Please enter a valid range between 1 and ${course.lessons.length}.`,
-            variant: 'destructive'
-        });
-        return;
-    }
-
-    const lessonsToSelect = course.lessons.slice(start - 1, end).map(l => l.id);
+  const handleFillGap = (course: Course, fromIndex: number, toIndex: number) => {
+    const lessonsToSelect = course.lessons.slice(fromIndex, toIndex + 1).map(l => l.id);
     setSelectedLessons(prev => {
         const currentSelection = new Set(prev[course.id] || []);
         lessonsToSelect.forEach(id => currentSelection.add(id));
         return { ...prev, [course.id]: Array.from(currentSelection) };
-    });
-    toast({
-        title: 'Range Selected',
-        description: `Selected lessons ${start} to ${end} for ${course.title}.`,
     });
   };
   
@@ -255,7 +225,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    // Artificial delay to give user feedback as generation is now very fast
     setTimeout(() => {
       try {
         const result = generateSchedule(data, selectedCoursesForGeneration);
@@ -299,13 +268,15 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                     {courses.map(course => {
                         const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
                         const someCourseLessonsSelected = selectedLessons[course.id]?.length > 0 && !allCourseLessonsSelected;
+                        
+                        let lastSelectedIndex = -1;
+
                         return (
                             <AccordionItem value={course.id} key={course.id}>
                                <div className="flex items-center gap-2 pr-4 py-2">
                                   <Checkbox
                                       id={`select-all-${course.id}`}
                                       checked={allCourseLessonsSelected || someCourseLessonsSelected}
-                                      aria-label={`Select all lessons from ${course.title}`}
                                       onCheckedChange={(checked) => toggleCourse(course, !!checked)}
                                       className="ml-4"
                                   />
@@ -315,42 +286,45 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                </div>
                                 <AccordionContent>
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8">
-                                        {course.lessons.map(lesson => (
-                                            <div key={lesson.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={`${course.id}-${lesson.id}`}
-                                                    checked={selectedLessons[course.id]?.includes(lesson.id) || false}
-                                                    onCheckedChange={() => toggleLesson(course.id, lesson.id)}
-                                                />
-                                                <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                    {lesson.title}
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="mt-4 ml-8 pr-4 space-y-2">
-                                        <Label className="text-xs font-semibold">Select Range</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                type="number" 
-                                                placeholder="Start" 
-                                                className="h-8"
-                                                value={rangeSelection[course.id]?.start || ''}
-                                                onChange={(e) => handleRangeInputChange(course.id, 'start', e.target.value)}
-                                                min="1"
-                                                max={course.lessons.length}
-                                            />
-                                            <Input 
-                                                type="number" 
-                                                placeholder="End" 
-                                                className="h-8"
-                                                value={rangeSelection[course.id]?.end || ''}
-                                                onChange={(e) => handleRangeInputChange(course.id, 'end', e.target.value)}
-                                                min="1"
-                                                max={course.lessons.length}
-                                            />
-                                            <Button type="button" size="sm" variant="outline" onClick={() => handleSelectRange(course)}>Select</Button>
-                                        </div>
+                                        {course.lessons.map((lesson, index) => {
+                                            const isSelected = selectedLessons[course.id]?.includes(lesson.id) || false;
+                                            let fillGapButton = null;
+
+                                            if (isSelected && lastSelectedIndex !== -1 && index > lastSelectedIndex + 1) {
+                                                fillGapButton = (
+                                                    <div className="my-2 flex justify-center">
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            className="h-7"
+                                                            onClick={() => handleFillGap(course, lastSelectedIndex + 1, index - 1)}
+                                                        >
+                                                            Fill {index - lastSelectedIndex - 1} lesson gap
+                                                        </Button>
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            if (isSelected) {
+                                                lastSelectedIndex = index;
+                                            }
+
+                                            return (
+                                                <div key={lesson.id}>
+                                                    {fillGapButton}
+                                                    <div className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`${course.id}-${lesson.id}`}
+                                                            checked={isSelected}
+                                                            onCheckedChange={() => toggleLesson(course.id, lesson.id)}
+                                                        />
+                                                        <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                            {lesson.title}
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
