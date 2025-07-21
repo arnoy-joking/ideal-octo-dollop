@@ -45,47 +45,38 @@ type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 type LessonToSchedule = Lesson & { courseId: string };
 
 function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
-    const { dateRange, isLazy } = data;
+    const { dateRange, isLazy, prefersMultipleLessons } = data;
     const { from: startDate, to: endDate } = dateRange;
     
-    const allLessons = selectedCourses.flatMap(c => c.lessons);
-    if (allLessons.length === 0) return {};
-
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     selectedCourses.forEach(course => {
         courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
     });
     
     const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
-    let studyDays: Date[];
+    let studyDays: Date[] = [...allAvailableDays];
+
+    const totalLessons = selectedCourses.reduce((acc, course) => acc + course.lessons.length, 0);
 
     if (isLazy) {
-        const totalDays = differenceInCalendarDays(endDate, startDate) + 1;
-        const restDays = Math.max(1, Math.floor(totalDays / 4));
-        const studyDayCount = totalDays - restDays;
-
-        if (studyDayCount < 1 && totalDays > 0) {
-             studyDays = [allAvailableDays[0]];
-        } else {
-            const restInterval = restDays > 0 ? Math.floor(totalDays / restDays) : totalDays + 1;
-            studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0);
-            if (studyDays.length > studyDayCount) {
-                studyDays = studyDays.slice(0, studyDayCount);
+        const totalDays = allAvailableDays.length;
+        if (totalDays > 2) {
+            const restDaysCount = Math.max(1, Math.floor(totalDays / 4)); // e.g., ~1 rest day every 4 days
+            const studyDayCount = totalDays - restDaysCount;
+            if (studyDayCount >= totalLessons) { // Only add rest days if there's enough time
+                const restInterval = Math.floor(totalDays / (restDaysCount + 1));
+                 studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0);
             }
-             if (studyDays.length === 0 && allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
         }
-    } else {
-        studyDays = allAvailableDays;
     }
     
-    if (studyDays.length === 0) return {};
+    if (studyDays.length === 0 && allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
     
-    const totalLessons = allLessons.length;
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
 
     const dailyQuotas: Record<string, number> = {};
-    studyDays.forEach((day, index) => {
+    studyDays.forEach((day) => {
         const dayString = format(day, 'yyyy-MM-dd');
         dailyQuotas[dayString] = lessonsPerDay;
         if (remainingLessons > 0) {
@@ -123,13 +114,15 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
             }
             
             const lesson = courseQueues[nextCourseId].shift()!;
-            schedule[dayString].push({
-                lessonId: lesson.id,
-                courseId: lesson.courseId,
-                title: lesson.title,
-                time: studyTimes[schedule[dayString].length % studyTimes.length],
-            });
-            courseLastScheduled[nextCourseId] = lessonIndex++;
+            if (lesson) {
+                schedule[dayString].push({
+                    lessonId: lesson.id,
+                    courseId: lesson.courseId,
+                    title: lesson.title,
+                    time: studyTimes[schedule[dayString].length % studyTimes.length],
+                });
+                courseLastScheduled[nextCourseId] = lessonIndex++;
+            }
         }
     });
 
@@ -264,7 +257,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <Accordion type="multiple" className="w-full">
                     {courses.map(course => {
                         const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
-                        const someCourseLessonsSelected = selectedLessons[course.id]?.length > 0 && !allCourseLessonsSelected;
                         
                         let lastSelectedIndex = -1;
 
@@ -664,3 +656,5 @@ export default function SchedulerPage() {
         </main>
     );
 }
+
+    
