@@ -45,7 +45,7 @@ type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 type LessonToSchedule = Lesson & { courseId: string };
 
 function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
-    const { dateRange, isLazy, prefersMultipleLessons } = data;
+    const { dateRange, isLazy } = data;
     const { from: startDate, to: endDate } = dateRange;
     
     const courseQueues: Record<string, LessonToSchedule[]> = {};
@@ -63,14 +63,15 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         if (totalDays > 2) {
             const restDaysCount = Math.max(1, Math.floor(totalDays / 4)); // e.g., ~1 rest day every 4 days
             const studyDayCount = totalDays - restDaysCount;
-            if (studyDayCount >= totalLessons) { // Only add rest days if there's enough time
+            if (studyDayCount >= totalLessons && studyDayCount > 0) { // Only add rest days if there's enough time
                 const restInterval = Math.floor(totalDays / (restDaysCount + 1));
-                 studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0);
+                 studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0 || (index + 1) > studyDayCount );
             }
         }
     }
     
     if (studyDays.length === 0 && allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
+    if (studyDays.length === 0) return {};
     
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
@@ -104,8 +105,8 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
             if (availableCourses.length === 0) break;
 
             let nextCourseId = availableCourses[0];
-            let minIndex = courseLastScheduled[nextCourseId]
-            
+            let minIndex = Infinity;
+
             for(const courseId of availableCourses) {
                 if (courseLastScheduled[courseId] < minIndex) {
                     minIndex = courseLastScheduled[courseId];
@@ -170,30 +171,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
   
-  const toggleCourse = (course: Course, isChecked: boolean) => {
-    setSelectedLessons(prev => {
-      const newSelected = { ...prev };
-      if (isChecked) {
-        newSelected[course.id] = course.lessons.map(l => l.id);
-      } else {
-        delete newSelected[course.id];
-      }
-      return newSelected;
-    });
-  };
-
-  const handleFillGap = (courseId: string, fromIndex: number, toIndex: number) => {
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return;
-
-    const lessonsToSelect = course.lessons.slice(fromIndex, toIndex + 1).map(l => l.id);
-    setSelectedLessons(prev => {
-        const currentSelection = new Set(prev[courseId] || []);
-        lessonsToSelect.forEach(id => currentSelection.add(id));
-        return { ...prev, [courseId]: Array.from(currentSelection) };
-    });
-  };
-  
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
     return courses
       .map(course => ({
@@ -226,7 +203,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
           setSelectedLessons({});
           form.reset();
         } else {
-          throw new Error('The algorithm failed to produce a schedule.');
+          throw new Error('The algorithm failed to produce a schedule for the given constraints.');
         }
       } catch (error) {
         console.error(error);
@@ -255,71 +232,32 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Select Lessons</h3>
                 <Accordion type="multiple" className="w-full">
-                    {courses.map(course => {
-                        const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
-                        
-                        let lastSelectedIndex = -1;
-
-                        return (
-                            <AccordionItem value={course.id} key={course.id}>
-                               <div className="flex items-center gap-2 pr-4 py-2">
-                                  <Checkbox
-                                      id={`select-all-${course.id}`}
-                                      checked={allCourseLessonsSelected}
-                                      onCheckedChange={(checked) => toggleCourse(course, !!checked)}
-                                      className="ml-4"
-                                  />
-                                  <AccordionTrigger>
-                                    <label htmlFor={`select-all-${course.id}`} className="flex-1 cursor-pointer">{course.title}</label>
-                                  </AccordionTrigger>
-                               </div>
-                                <AccordionContent>
-                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8">
-                                        {course.lessons.map((lesson, index) => {
-                                            const isSelected = selectedLessons[course.id]?.includes(lesson.id) || false;
-                                            let fillGapButton = null;
-
-                                            if (isSelected && lastSelectedIndex !== -1 && index > lastSelectedIndex + 1) {
-                                                const gapSize = index - lastSelectedIndex - 1;
-                                                fillGapButton = (
-                                                    <div className="my-2 flex justify-center">
-                                                        <Button
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            className="h-7"
-                                                            onClick={() => handleFillGap(course.id, lastSelectedIndex + 1, index - 1)}
-                                                        >
-                                                            Fill {gapSize} lesson gap
-                                                        </Button>
-                                                    </div>
-                                                );
-                                            }
-                                            
-                                            if (isSelected) {
-                                                lastSelectedIndex = index;
-                                            }
-
-                                            return (
-                                                <div key={lesson.id}>
-                                                    {fillGapButton}
-                                                    <div className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`${course.id}-${lesson.id}`}
-                                                            checked={isSelected}
-                                                            onCheckedChange={() => toggleLesson(course.id, lesson.id)}
-                                                        />
-                                                        <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                                            {lesson.title}
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        )
-                    })}
+                    {courses.map(course => (
+                        <AccordionItem value={course.id} key={course.id}>
+                           <AccordionTrigger>
+                                {course.title}
+                           </AccordionTrigger>
+                            <AccordionContent>
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4">
+                                    {course.lessons.map((lesson) => {
+                                        const isSelected = selectedLessons[course.id]?.includes(lesson.id) || false;
+                                        return (
+                                            <div key={lesson.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`${course.id}-${lesson.id}`}
+                                                    checked={isSelected}
+                                                    onCheckedChange={() => toggleLesson(course.id, lesson.id)}
+                                                />
+                                                <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer">
+                                                    {lesson.title}
+                                                </label>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
                 </Accordion>
             </div>
 
@@ -656,5 +594,3 @@ export default function SchedulerPage() {
         </main>
     );
 }
-
-    
