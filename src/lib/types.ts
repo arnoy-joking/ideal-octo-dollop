@@ -74,46 +74,20 @@ export const ScheduledLessonSchema = z.object({
 });
 export type ScheduledLesson = z.infer<typeof ScheduledLessonSchema>;
 
-export const GenerateScheduleOutputSchema = z.record(
+export const ScheduleSchema = z.record(
   z.string().describe("The date in YYYY-MM-DD format."),
   z.array(ScheduledLessonSchema)
 ).describe("The full study schedule, with dates as keys.");
-export type GenerateScheduleOutput = z.infer<typeof GenerateScheduleOutputSchema>;
-// For database storage, we'll use the same type as the output.
-export type Schedule = GenerateScheduleOutput;
-
-
-const CourseInfoForSchedulerSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  lessons: z.array(z.object({ id: z.string(), title: z.string() })),
-});
-
-export const GenerateSchedulePlanInputSchema = z.object({
-  courses: z.array(CourseInfoForSchedulerSchema).describe("A list of courses the user wants to schedule."),
-  startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
-  endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
-  isLazy: z.boolean().describe("User self-identifies as lazy. This implies more breaks and fewer lessons per day."),
-});
-export type GenerateSchedulePlanInput = z.infer<typeof GenerateSchedulePlanInputSchema>;
-
-
-export const CoursePlanSchema = z.record(
-    z.string().describe("A date string in YYYY-MM-DD format."),
-    z.array(z.string()).describe("An array of unique course IDs to be studied on this date. This determines subject variety.")
-).describe("A high-level plan mapping dates to a list of unique course IDs for study on that day. Rest days should have an empty array.");
-export type CoursePlan = z.infer<typeof CoursePlanSchema>;
+export type Schedule = z.infer<typeof ScheduleSchema>;
 
 
 export const GenerateScheduleInputSchema = z.object({
-  courses: z.array(z.object({
-      id: z.string(),
-      title: z.string(),
-      lessons: z.array(z.object({ id: z.string(), title: z.string() })),
-  })).describe("A list of courses the user wants to schedule, including their lessons."),
+  courses: z.array(z.custom<Course>()).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
   isLazy: z.boolean().describe("User self-identifies as lazy. This implies longer breaks and fewer lessons per day."),
   prefersMultipleLessons: z.boolean().describe("User is okay with scheduling multiple lessons from the same course on the same day."),
 });
 export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
+
+    

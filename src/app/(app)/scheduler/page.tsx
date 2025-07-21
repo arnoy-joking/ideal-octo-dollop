@@ -1,12 +1,11 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parse, isToday, parseISO } from 'date-fns';
+import { format, parse, isToday, parseISO, eachDayOfInterval } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -43,19 +42,87 @@ const scheduleRequestSchema = z.object({
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 
+// A new, simpler, and more reliable scheduling algorithm implemented directly.
+function generateSimpleSchedule(input: GenerateScheduleInput): Schedule {
+    const { courses, startDate, endDate, isLazy } = input;
+    
+    // 1. Flatten all selected lessons into a single list, preserving order.
+    const allLessons: (Lesson & { courseId: string, courseOrder: number })[] = [];
+    courses.forEach(course => {
+        const originalCourse = courses.find(c => c.id === course.id)!;
+        course.lessons.forEach((lesson, lessonIndex) => {
+            allLessons.push({
+                ...lesson,
+                id: lesson.id,
+                courseId: course.id,
+                courseOrder: originalCourse.order, // Use original course order
+            });
+        });
+    });
+
+    // This sort is the key to preserving sequence.
+    // It sorts by the original course order, then by the lesson's position in that course.
+    allLessons.sort((a, b) => {
+        if (a.courseOrder !== b.courseOrder) {
+            return a.courseOrder - b.courseOrder;
+        }
+        const course = courses.find(c => c.id === a.courseId)!;
+        return course.lessons.findIndex(l => l.id === a.id) - course.lessons.findIndex(l => l.id === b.id);
+    });
+
+    const totalLessons = allLessons.length;
+    if (totalLessons === 0) return {};
+
+    // 2. Determine study days.
+    const availableDays = eachDayOfInterval({ start: parseISO(startDate), end: parseISO(endDate) });
+    let studyDays = availableDays;
+    if (isLazy) {
+      // Remove roughly 1 in 5 days for rest, ensuring at least one study day.
+      const restDays = Math.floor(availableDays.length / 5);
+      if (availableDays.length - restDays > 0) {
+        studyDays = availableDays.filter((_, i) => (i + 1) % 5 !== 0);
+      }
+    }
+    
+    if(studyDays.length === 0) studyDays.push(availableDays[0]); // Ensure at least one day if range is short
+
+    // 3. Distribute lessons evenly.
+    const lessonsPerDay = Math.ceil(totalLessons / studyDays.length);
+    const schedule: Schedule = {};
+    let lessonIndex = 0;
+    const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
+
+    studyDays.forEach(day => {
+        const dayString = format(day, 'yyyy-MM-dd');
+        schedule[dayString] = [];
+        for (let i = 0; i < lessonsPerDay; i++) {
+            if (lessonIndex < totalLessons) {
+                const lesson = allLessons[lessonIndex];
+                schedule[dayString].push({
+                    lessonId: lesson.id,
+                    courseId: lesson.courseId,
+                    title: lesson.title,
+                    time: studyTimes[i % studyTimes.length],
+                });
+                lessonIndex++;
+            }
+        }
+    });
+
+    return schedule;
+}
+
+
 function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedLessons, setSelectedLessons] = useState<Record<string, Lesson[]>>({});
+  const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
 
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
-      dateRange: {
-        from: undefined,
-        to: undefined,
-      },
+      dateRange: { from: undefined, to: undefined },
       isLazy: false,
       prefersMultipleLessons: false,
     },
@@ -63,29 +130,20 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   
   const dateRange = form.watch('dateRange');
 
-  const toggleLesson = (course: Course, lesson: Lesson) => {
+  const toggleLesson = (courseId: string, lessonId: string) => {
     setSelectedLessons(prev => {
-        const currentCourseLessons = prev[course.id] ? [...prev[course.id]] : [];
-        const lessonIndex = currentCourseLessons.findIndex(l => l.id === lesson.id);
-
-        if (lessonIndex > -1) {
-            currentCourseLessons.splice(lessonIndex, 1);
-        } else {
-            currentCourseLessons.push(lesson);
-            // Ensure lessons within a course are always sorted by their original order
-            currentCourseLessons.sort((a, b) => 
-                course.lessons.findIndex(l => l.id === a.id) - course.lessons.findIndex(l => l.id === b.id)
-            );
-        }
-
-        const newSelected = { ...prev };
-        if (currentCourseLessons.length > 0) {
-            newSelected[course.id] = currentCourseLessons;
-        } else {
-            delete newSelected[course.id];
-        }
-        
-        return newSelected;
+      const currentLessons = prev[courseId] || [];
+      const newLessons = currentLessons.includes(lessonId)
+        ? currentLessons.filter(id => id !== lessonId)
+        : [...currentLessons, lessonId];
+      
+      const newState = { ...prev };
+      if (newLessons.length > 0) {
+        newState[courseId] = newLessons;
+      } else {
+        delete newState[courseId];
+      }
+      return newState;
     });
   };
   
@@ -93,63 +151,46 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     setSelectedLessons(prev => {
       const newSelected = { ...prev };
       if (isChecked) {
-        newSelected[course.id] = [...course.lessons];
+        newSelected[course.id] = course.lessons.map(l => l.id);
       } else {
         delete newSelected[course.id];
       }
       return newSelected;
     });
   };
-
-  const selectedCoursesForWorker = useMemo(() => {
-     return Object.entries(selectedLessons).map(([courseId, lessons]) => {
-        const originalCourse = courses.find(c => c.id === courseId)!;
-        return {
-            id: originalCourse.id,
-            title: originalCourse.title,
-            lessons: lessons.map(l => ({ id: l.id, title: l.title }))
-        }
-    });
+  
+  const selectedCoursesForGeneration: Course[] = useMemo(() => {
+    return courses
+      .map(course => ({
+        ...course,
+        lessons: course.lessons.filter(lesson => selectedLessons[course.id]?.includes(lesson.id)),
+      }))
+      .filter(course => course.lessons.length > 0);
   }, [selectedLessons, courses]);
 
+  const totalSelectedLessons = useMemo(() => {
+    return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
+  }, [selectedCoursesForGeneration]);
+
   const onSubmit = (data: ScheduleRequestData) => {
-    if (selectedCoursesForWorker.length === 0) {
+    if (selectedCoursesForGeneration.length === 0) {
       toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
       return;
     }
     
     setIsGenerating(true);
 
-    const worker = new Worker(new URL('../../../workers/scheduler.worker.ts', import.meta.url));
-
-    const generationPromise = new Promise<Schedule>((resolve, reject) => {
-        worker.onmessage = (event) => {
-            if (event.data && event.data.error) {
-                reject(new Error(event.data.error));
-            } else if (event.data) {
-                resolve(event.data);
-            } else {
-                reject(new Error('Worker returned an empty response.'));
-            }
-            worker.terminate();
-        };
-        worker.onerror = (error) => {
-            reject(error);
-            worker.terminate();
-        };
-
-        const workerInput: GenerateScheduleInput = {
-            courses: selectedCoursesForWorker,
+    // Artificial delay to give user feedback
+    setTimeout(() => {
+      try {
+        const generationInput: GenerateScheduleInput = {
+            ...data,
+            courses: selectedCoursesForGeneration,
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-            isLazy: data.isLazy,
-            prefersMultipleLessons: data.prefersMultipleLessons,
         };
-        worker.postMessage(workerInput);
-    });
-
-    generationPromise
-      .then((result) => {
+        const result = generateSimpleSchedule(generationInput);
+        
         if (result && Object.keys(result).length > 0) {
           onScheduleGenerated(result);
           toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
@@ -157,16 +198,15 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
           setSelectedLessons({});
           form.reset();
         } else {
-          toast({ title: 'Failed to Generate Schedule', description: 'Could not generate a schedule with the selected lessons and dates.', variant: 'destructive' });
+          throw new Error('The algorithm failed to produce a schedule.');
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error(error);
-        toast({ title: 'Error', description: `An unexpected error occurred: ${error.message}`, variant: 'destructive' });
-      })
-      .finally(() => {
+        toast({ title: 'Error', description: `An unexpected error occurred: ${(error as Error).message}`, variant: 'destructive' });
+      } finally {
         setIsGenerating(false);
-      });
+      }
+    }, 1000); // 1-second delay
   };
 
   return (
@@ -189,29 +229,29 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <Accordion type="multiple" className="w-full">
                     {courses.map(course => {
                         const allCourseLessonsSelected = course.lessons.length > 0 && selectedLessons[course.id]?.length === course.lessons.length;
+                        const someCourseLessonsSelected = selectedLessons[course.id]?.length > 0 && !allCourseLessonsSelected;
                         return (
                             <AccordionItem value={course.id} key={course.id}>
-                                <div className="flex items-center w-full">
-                                    <div className="p-4 pl-0">
-                                        <Checkbox
-                                            id={`select-all-${course.id}`}
-                                            checked={allCourseLessonsSelected}
-                                            onCheckedChange={(checked) => toggleCourse(course, !!checked)}
-                                            aria-label={`Select all lessons from ${course.title}`}
-                                        />
-                                    </div>
-                                    <AccordionTrigger className="w-full">
-                                        <span>{course.title}</span>
-                                    </AccordionTrigger>
-                                </div>
+                               <div className="flex items-center gap-2 pr-4 py-2">
+                                  <Checkbox
+                                      id={`select-all-${course.id}`}
+                                      checked={allCourseLessonsSelected || someCourseLessonsSelected}
+                                      aria-label={`Select all lessons from ${course.title}`}
+                                      onCheckedChange={(checked) => toggleCourse(course, !!checked)}
+                                      className="ml-4"
+                                  />
+                                  <AccordionTrigger>
+                                    <label htmlFor={`select-all-${course.id}`} className="flex-1 cursor-pointer">{course.title}</label>
+                                  </AccordionTrigger>
+                               </div>
                                 <AccordionContent>
                                     <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8">
                                         {course.lessons.map(lesson => (
                                             <div key={lesson.id} className="flex items-center space-x-2">
                                                 <Checkbox
                                                     id={`${course.id}-${lesson.id}`}
-                                                    checked={selectedLessons[course.id]?.some(l => l.id === lesson.id) || false}
-                                                    onCheckedChange={() => toggleLesson(course, lesson)}
+                                                    checked={selectedLessons[course.id]?.includes(lesson.id) || false}
+                                                    onCheckedChange={() => toggleLesson(course.id, lesson.id)}
                                                 />
                                                 <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                                     {lesson.title}
@@ -293,7 +333,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         <DialogFooter className="pt-4 border-t">
           <div className="flex items-center text-sm text-muted-foreground mr-auto">
             <Info className="mr-2 h-4 w-4" />
-            {selectedCoursesForWorker.flatMap(c => c.lessons).length} lessons selected
+            {totalSelectedLessons} lessons selected
           </div>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
@@ -323,7 +363,7 @@ export default function SchedulerPage() {
         return Object.keys(schedule).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
     }, [schedule]);
 
-    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
+    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.id])), [courses]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -542,4 +582,5 @@ export default function SchedulerPage() {
             </div>
         </main>
     );
-}
+
+    
