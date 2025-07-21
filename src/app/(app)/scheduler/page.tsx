@@ -146,10 +146,8 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         worker.postMessage(workerInput);
     });
 
-    const artificialDelay = new Promise(resolve => setTimeout(resolve, 3000));
-
-    Promise.all([generationPromise, artificialDelay])
-      .then(([result]) => {
+    generationPromise
+      .then((result) => {
         if (result && Object.keys(result).length > 0) {
           onScheduleGenerated(result);
           toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
