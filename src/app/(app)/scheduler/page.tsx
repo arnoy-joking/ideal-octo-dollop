@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
@@ -71,6 +72,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             currentCourseLessons.splice(lessonIndex, 1);
         } else {
             currentCourseLessons.push(lesson);
+            // Ensure lessons within a course are always sorted by their original order
             currentCourseLessons.sort((a, b) => 
                 course.lessons.findIndex(l => l.id === a.id) - course.lessons.findIndex(l => l.id === b.id)
             );
@@ -100,13 +102,8 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   };
 
   const flatSelectedLessons = useMemo(() => {
-    const lessonsWithCourseId = Object.entries(selectedLessons).flatMap(([courseId, lessons]) => 
-      lessons.map(lesson => ({ ...lesson, courseId }))
-    );
-    const allOriginalLessons = courses.flatMap(c => c.lessons);
-    lessonsWithCourseId.sort((a, b) => allOriginalLessons.findIndex(l => l.id === a.id) - allOriginalLessons.findIndex(l => l.id === b.id));
-    return lessonsWithCourseId;
-  }, [selectedLessons, courses]);
+    return Object.values(selectedLessons).flat();
+  }, [selectedLessons]);
 
   const onSubmit = (data: ScheduleRequestData) => {
     if (flatSelectedLessons.length === 0) {
@@ -120,7 +117,11 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
 
     const generationPromise = new Promise<Schedule>((resolve, reject) => {
         worker.onmessage = (event) => {
-            resolve(event.data);
+            if(event.data.error) {
+                reject(new Error(event.data.error));
+            } else {
+                resolve(event.data);
+            }
             worker.terminate();
         };
         worker.onerror = (error) => {
@@ -129,7 +130,14 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         };
 
         const workerInput: GenerateScheduleInput = {
-            lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
+            courses: Object.entries(selectedLessons).map(([courseId, lessons]) => {
+                const originalCourse = courses.find(c => c.id === courseId)!;
+                return {
+                    id: originalCourse.id,
+                    title: originalCourse.title,
+                    lessons: lessons.map(l => ({ id: l.id, title: l.title }))
+                }
+            }),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
             isLazy: data.isLazy,
@@ -154,7 +162,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       })
       .catch((error) => {
         console.error(error);
-        toast({ title: 'Error', description: 'An unexpected error occurred while generating the schedule.', variant: 'destructive' });
+        toast({ title: 'Error', description: `An unexpected error occurred: ${error.message}`, variant: 'destructive' });
       })
       .finally(() => {
         setIsGenerating(false);
@@ -486,8 +494,8 @@ export default function SchedulerPage() {
                                         <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="relative pl-6">
-                                            <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>
+                                       <div className="relative pl-6">
+                                            {schedule![day].length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
                                             <ul className="space-y-4">
                                                 {schedule![day].map((lesson, index) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);

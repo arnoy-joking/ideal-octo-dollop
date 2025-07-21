@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 import { z } from "zod";
 
@@ -7,7 +8,6 @@ export interface Lesson {
   duration: string;
   videoId: string;
   pdfUrl?: string;
-  courseId?: string; // This will be added when processing
 }
 
 export interface Course {
@@ -84,11 +84,11 @@ export type Schedule = GenerateScheduleOutput;
 
 
 export const GenerateScheduleInputSchema = z.object({
-  lessons: z.array(z.object({
+  courses: z.array(z.object({
       id: z.string(),
       title: z.string(),
-      courseId: z.string(),
-  })).describe("A list of lessons the user wants to schedule, already in sequential order."),
+      lessons: z.array(z.object({ id: z.string(), title: z.string() })),
+  })).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
   isLazy: z.boolean().describe("User self-identifies as lazy. This implies longer breaks and fewer lessons per day."),
