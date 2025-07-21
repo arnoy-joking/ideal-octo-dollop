@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { eachDayOfInterval, format, parseISO, parse } from 'date-fns';
 import { generateScheduleAlgorithmically } from '../lib/algorithmic-scheduler';
 import type { GenerateScheduleInput } from '../lib/types';
 
