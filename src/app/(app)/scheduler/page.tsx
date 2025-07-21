@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parse, isToday, parseISO, eachDayOfInterval } from 'date-fns';
+import { format, parse, isToday, parseISO, eachDayOfInterval, differenceInCalendarDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -53,70 +53,96 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
     });
     
-    const allLessons = selectedCourses.flatMap(c => c.lessons.map(l => ({ ...l, courseId: c.id })));
-    const totalLessons = allLessons.length;
-    if (totalLessons === 0) return {};
+    const allLessons = selectedCourses.flatMap(c => c.lessons);
+    if (allLessons.length === 0) return {};
 
     // 2. Determine study days, accounting for 'isLazy'
-    const availableDays = eachDayOfInterval({ start: startDate, end: endDate });
-    let studyDays = [...availableDays];
-    if (isLazy && availableDays.length > 3) {
-        const restDayCount = Math.max(1, Math.floor(availableDays.length / 5));
-        const studyDayCount = availableDays.length - restDayCount;
-        // Only insert rest days if it doesn't make it impossible to finish
-        if (studyDayCount >= totalLessons || studyDayCount > 0) {
-            const tempStudyDays = [];
-            const restInterval = Math.floor(availableDays.length / (restDayCount + 1));
-            if (restInterval > 0) {
-                for(let i=0; i<availableDays.length; i++) {
-                    if ((i + 1) % (restInterval + 1) !== 0) {
-                        tempStudyDays.push(availableDays[i]);
-                    }
-                }
-                studyDays = tempStudyDays.slice(0, studyDayCount);
+    const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
+    let studyDays: Date[];
+
+    if (isLazy) {
+        const totalDays = differenceInCalendarDays(endDate, startDate) + 1;
+        const restDays = Math.floor(totalDays / 5); // 1 rest day for every 5 days
+        const studyDayCount = totalDays - restDays;
+
+        if (studyDayCount < 1 && totalDays > 0) { // Ensure at least one study day if range is valid
+             studyDays = [allAvailableDays[0]];
+        } else {
+            const restInterval = restDays > 0 ? Math.floor(totalDays / restDays) : totalDays + 1;
+            studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0);
+            if (studyDays.length > studyDayCount) {
+                studyDays = studyDays.slice(0, studyDayCount);
             }
         }
+    } else {
+        studyDays = allAvailableDays;
     }
-    if(studyDays.length === 0 && availableDays.length > 0) studyDays.push(availableDays[0]);
+    
+    if (studyDays.length === 0) {
+      if (allAvailableDays.length > 0) studyDays = [allAvailableDays[0]];
+      else return {};
+    }
 
     // 3. Distribute lessons evenly across study days
-    const lessonsPerDay = Math.ceil(totalLessons / Math.max(1, studyDays.length));
-    const schedule: Schedule = {};
-    const courseLastScheduled: Record<string, number> = {};
-    selectedCourses.forEach(c => { courseLastScheduled[c.id] = -1; });
+    const totalLessons = allLessons.length;
+    const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
+    let remainingLessons = totalLessons % studyDays.length;
 
-    const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM"];
-    let lessonIndex = 0;
-
+    const dailyQuotas: Record<string, number> = {};
     studyDays.forEach(day => {
         const dayString = format(day, 'yyyy-MM-dd');
-        schedule[dayString] = [];
-        for (let i = 0; i < lessonsPerDay; i++) {
-            if (lessonIndex < totalLessons) {
-                 // Find the course that was scheduled least recently
-                let nextCourseId = '';
-                let minLastScheduled = Infinity;
+        dailyQuotas[dayString] = lessonsPerDay;
+        if (remainingLessons > 0) {
+            dailyQuotas[dayString]++;
+            remainingLessons--;
+        }
+    });
 
-                Object.keys(courseQueues).forEach(courseId => {
-                    if (courseQueues[courseId].length > 0 && (courseLastScheduled[courseId] < minLastScheduled)) {
-                        minLastScheduled = courseLastScheduled[courseId];
-                        nextCourseId = courseId;
-                    }
-                });
+    const schedule: Schedule = {};
+    allAvailableDays.forEach(day => {
+      schedule[format(day, 'yyyy-MM-dd')] = [];
+    });
 
-                if (nextCourseId && courseQueues[nextCourseId].length > 0) {
-                    const lesson = courseQueues[nextCourseId].shift()!;
-                    schedule[dayString].push({
-                        lessonId: lesson.id,
-                        courseId: lesson.courseId,
-                        title: lesson.title,
-                        time: studyTimes[i % studyTimes.length],
-                    });
-                    courseLastScheduled[nextCourseId] = lessonIndex;
-                    lessonIndex++;
+    const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM"];
+    const courseIds = selectedCourses.map(c => c.id);
+    let courseLastScheduled: Record<string, number> = {};
+    courseIds.forEach(id => courseLastScheduled[id] = -1);
+    
+    let lessonIndex = 0;
+    studyDays.forEach(day => {
+        const dayString = format(day, 'yyyy-MM-dd');
+        const quota = dailyQuotas[dayString] || 0;
+        
+        for(let i=0; i<quota; i++) {
+            let nextCourseId = '';
+            let minLastScheduled = Infinity;
+            
+            // Find the course that was scheduled least recently and still has lessons
+            courseIds.forEach(id => {
+                if (courseQueues[id].length > 0 && courseLastScheduled[id] < minLastScheduled) {
+                    minLastScheduled = courseLastScheduled[id];
+                    nextCourseId = id;
                 }
+            });
+
+            if (nextCourseId) {
+                const lesson = courseQueues[nextCourseId].shift()!;
+                schedule[dayString].push({
+                    lessonId: lesson.id,
+                    courseId: lesson.courseId,
+                    title: lesson.title,
+                    time: studyTimes[i % studyTimes.length],
+                });
+                courseLastScheduled[nextCourseId] = lessonIndex++;
             }
         }
+    });
+
+    // Clean up empty days from schedule object
+    Object.keys(schedule).forEach(day => {
+      if(schedule[day].length === 0) {
+        delete schedule[day];
+      }
     });
     
     return schedule;
@@ -318,7 +344,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                     <div className="flex items-center space-x-4 rounded-md border p-4">
                         <div className="flex-1 space-y-1">
                             <Label htmlFor="isLazy" className="font-semibold">Relaxed Pace</Label>
-                            <p className="text-sm text-muted-foreground">Prefer a more spread-out schedule?</p>
+                            <p className="text-sm text-muted-foreground">Prefer a more spread-out schedule with rest days?</p>
                         </div>
                         <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
                     </div>
