@@ -14,30 +14,30 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
         return {};
     }
 
-    // 1. Flatten lessons from all selected courses into a single array
-    const allLessons: LessonToSchedule[] = courses.flatMap(course => 
+    const allLessonsFlat = courses.flatMap(course => 
         course.lessons.map(lesson => ({
             ...lesson,
             courseId: course.id,
         }))
     );
     
-    if (allLessons.length === 0) {
+    if (allLessonsFlat.length === 0) {
         return {};
     }
 
-    // Create a queue for each course, with lessons correctly sorted.
+    // Create a correctly ordered queue for each course.
+    // This approach is robust and avoids unstable sort issues.
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     courses.forEach(course => {
-        courseQueues[course.id] = allLessons
-            .filter(l => l.courseId === course.id)
-            .sort((a, b) => {
-                const originalCourse = courses.find(c => c.id === a.courseId)!;
-                return originalCourse.lessons.findIndex(l => l.id === a.id) - originalCourse.lessons.findIndex(l => l.id === b.id);
-            });
+        // Directly map over the original, ordered lessons to preserve sequence.
+        courseQueues[course.id] = course.lessons.map(lesson => ({
+            id: lesson.id,
+            title: lesson.title,
+            courseId: course.id,
+        }));
     });
 
-    const totalLessons = allLessons.length;
+    const totalLessons = allLessonsFlat.length;
     let availableDays = eachDayOfInterval({
         start: parseISO(startDate),
         end: parseISO(endDate)
@@ -50,10 +50,8 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
     if (isLazy && availableDays.length > 3) {
         const restDayCount = Math.max(1, Math.floor(availableDays.length / 5)); // e.g., 1 rest day every 5 days
         const studyDayCount = availableDays.length - restDayCount;
-        if (studyDayCount < totalLessons) { // Don't add rest days if it makes the schedule impossible
-             // Not enough days to be lazy, so we proceed without rest days
-        } else {
-            // Distribute rest days evenly
+        if (studyDayCount >= totalLessons) { 
+            // Distribute rest days evenly if possible
             const restDayInterval = Math.floor(availableDays.length / (restDayCount + 1));
             studyDays = [];
             for (let i = 0; i < availableDays.length; i++) {
@@ -64,7 +62,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
         }
     }
     
-    // Fallback if filtering makes it impossible
     if (studyDays.length === 0) studyDays = availableDays;
 
 
@@ -80,7 +77,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
         lessonsToDistribute -= quota;
     });
 
-    // If any lessons remain, distribute them to the first few days
     if (lessonsToDistribute > 0) {
         studyDays.forEach(day => {
             if (lessonsToDistribute > 0) {
@@ -98,7 +94,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
     
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
 
-    // 4. Two-Pass Scheduling for optimal balance
     const courseIds = courses.map(c => c.id);
     let courseIndex = 0;
 
@@ -111,7 +106,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
                 const courseId = courseIds[courseIndex % courseIds.length];
                 courseIndex++;
                 
-                // If course has lessons and isn't already scheduled today
                 if (courseQueues[courseId].length > 0 && !schedule[dayString].some(l => l.courseId === courseId)) {
                     const lesson = courseQueues[courseId].shift()!;
                     const time = studyTimes[schedule[dayString].length % studyTimes.length];
@@ -134,7 +128,6 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
                 courseIndex++;
                 
                 if (courseQueues[courseId].length > 0) {
-                     // Only add another lesson from the same course if user prefers it, or if it's the only option left
                     const canAddDuplicate = prefersMultipleLessons || courseIds.filter(id => courseQueues[id].length > 0).length === 1;
                     if(canAddDuplicate) {
                         const lesson = courseQueues[courseId].shift()!;
@@ -145,7 +138,7 @@ export function generateScheduleAlgorithmically(input: GenerateScheduleInput): G
                 }
                 attempts++;
              }
-             if (!lessonAdded) break; // Break if no lessons could be added
+             if (!lessonAdded) break; 
         }
     });
 
