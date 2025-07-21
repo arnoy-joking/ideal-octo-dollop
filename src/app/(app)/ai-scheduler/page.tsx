@@ -11,7 +11,7 @@ import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
-import { generateStudySchedule } from '@/ai/flows/scheduler-flow';
+import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/app/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -25,7 +25,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -40,7 +39,6 @@ const scheduleRequestSchema = z.object({
   }),
   isLazy: z.boolean(),
   prefersMultipleLessons: z.boolean(),
-  customInstructions: z.string().optional(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
@@ -60,7 +58,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       },
       isLazy: false,
       prefersMultipleLessons: false,
-      customInstructions: '',
     },
   });
   
@@ -75,7 +72,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             currentCourseLessons.splice(lessonIndex, 1);
         } else {
             currentCourseLessons.push(lesson);
-            // Sort to maintain original lesson order
             currentCourseLessons.sort((a, b) => 
                 course.lessons.findIndex(l => l.id === a.id) - course.lessons.findIndex(l => l.id === b.id)
             );
@@ -96,9 +92,9 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     setSelectedLessons(prev => {
       const newSelected = { ...prev };
       if (isChecked) {
-        newSelected[course.id] = [...course.lessons]; // Add all lessons
+        newSelected[course.id] = [...course.lessons];
       } else {
-        delete newSelected[course.id]; // Remove all lessons
+        delete newSelected[course.id];
       }
       return newSelected;
     });
@@ -108,7 +104,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     const lessonsWithCourseId = Object.entries(selectedLessons).flatMap(([courseId, lessons]) => 
       lessons.map(lesson => ({ ...lesson, courseId }))
     );
-    // Finally, sort all lessons globally based on their original position in their respective courses
     const allOriginalLessons = courses.flatMap(c => c.lessons);
     lessonsWithCourseId.sort((a, b) => allOriginalLessons.findIndex(l => l.id === a.id) - allOriginalLessons.findIndex(l => l.id === b.id));
     return lessonsWithCourseId;
@@ -122,13 +117,12 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
     try {
-      const result = await generateStudySchedule({
+      const result = generateScheduleAlgorithmically({
         lessons: flatSelectedLessons.map(l => ({ id: l.id, title: l.title, courseId: l.courseId })),
         startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
         endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
         isLazy: data.isLazy,
         prefersMultipleLessons: data.prefersMultipleLessons,
-        customInstructions: data.customInstructions,
       });
 
       if (result && Object.keys(result).length > 0) {
@@ -138,7 +132,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         setSelectedLessons({});
         form.reset();
       } else {
-        toast({ title: 'AI Failed to Generate Schedule', description: 'The AI may have had an issue. Please try adjusting your request or selected lessons.', variant: 'destructive' });
+        toast({ title: 'Failed to Generate Schedule', description: 'Could not generate a schedule with the selected lessons and dates.', variant: 'destructive' });
       }
     } catch (error) {
       console.error(error);
@@ -158,12 +152,11 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
-          <DialogTitle>AI Powered Scheduler</DialogTitle>
-          <DialogDescription>Select lessons, set your preferences, and let AI create a smart study plan for you.</DialogDescription>
+          <DialogTitle>Study Scheduler</DialogTitle>
+          <DialogDescription>Select lessons, set your preferences, and generate a smart study plan for you.</DialogDescription>
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
-            {/* Left side: Lesson Selection */}
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Select Lessons</h3>
                 <Accordion type="multiple" className="w-full">
@@ -177,7 +170,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                             id={`select-all-${course.id}`}
                                             checked={allCourseLessonsSelected}
                                             onCheckedChange={(checked) => toggleCourse(course, !!checked)}
-                                            onClick={(e) => e.stopPropagation()} // Prevent accordion from toggling
+                                            onClick={(e) => e.stopPropagation()}
                                             aria-label={`Select all lessons from ${course.title}`}
                                         />
                                         <span>{course.title}</span>
@@ -205,7 +198,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 </Accordion>
             </div>
 
-            {/* Right side: Preferences */}
             <div className="space-y-6">
                 <h3 className="font-semibold text-lg">2. Set Preferences</h3>
                 <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -265,15 +257,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                             <p className="text-sm text-muted-foreground">Allow scheduling multiple lessons from the same course on one day?</p>
                         </div>
                         <Switch id="prefersMultipleLessons" checked={form.watch('prefersMultipleLessons')} onCheckedChange={(checked) => form.setValue('prefersMultipleLessons', checked)} />
-                    </div>
-                    
-                    <div>
-                        <Label htmlFor="customInstructions">Custom Instructions (Optional)</Label>
-                        <Textarea
-                            id="customInstructions"
-                            placeholder="e.g., I am free on weekends after 2 PM. Don't schedule anything on Monday mornings."
-                            {...form.register('customInstructions')}
-                        />
                     </div>
                 </form>
             </div>
@@ -423,7 +406,6 @@ export default function AISchedulerPage() {
         }
     };
     
-    // This function attempts to parse time flexibly
     const parseFlexibleTime = (timeStr: string) => {
         const now = new Date();
         const formatsToTry = ['hh:mm a', 'h:mm a', 'HH:mm'];
@@ -434,10 +416,9 @@ export default function AISchedulerPage() {
                     return parsed;
                 }
             } catch (e) {
-                // Ignore parsing errors and try the next format
             }
         }
-        return new Date('invalid'); // Return an invalid date if all fail
+        return new Date('invalid');
     };
 
     if (isLoading || isUserLoading) {
@@ -457,7 +438,7 @@ export default function AISchedulerPage() {
             <div className="max-w-6xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                     <div>
-                        <h1 className="text-4xl font-headline font-bold text-primary">AI Study Scheduler</h1>
+                        <h1 className="text-4xl font-headline font-bold text-primary">Study Scheduler</h1>
                         <p className="text-muted-foreground mt-2">Your personalized, intelligent study plan.</p>
                     </div>
                     <div className="flex items-center gap-2">

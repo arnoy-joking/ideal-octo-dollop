@@ -30,7 +30,7 @@ const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/syllabus", label: "Syllabus", icon: BookCopy },
   { href: "/monthly-goal", label: "Monthly Goal", icon: Target },
-  { href: "/ai-scheduler", label: "AI Scheduler", icon: Sparkles },
+  { href: "/ai-scheduler", label: "Scheduler", icon: Sparkles },
   { href: "/pdf-hub", label: "PDF Hub", icon: FileText },
   { href: "/weekly-routine", label: "Weekly Routine", icon: CalendarDays },
   { href: "/progress", label: "Public Progress", icon: ClipboardList },
@@ -54,7 +54,6 @@ function CourseNav() {
   }, []);
 
   useEffect(() => {
-    // If we navigate to a class page, make sure the collapsible is open
     if (pathname.includes('/class/')) {
       setIsOpen(true);
     }

@@ -1,5 +1,10 @@
 import { eachDayOfInterval, format, parseISO } from 'date-fns';
-import type { GenerateScheduleInput, GenerateScheduleOutput, Course, Lesson } from './types';
+import type { GenerateScheduleInput, GenerateScheduleOutput, Lesson } from './types';
+
+interface LessonToSchedule extends Omit<Lesson, 'id' | 'duration' | 'videoId' | 'pdfUrl'> {
+    id: string;
+    courseId: string;
+}
 
 export function generateScheduleAlgorithmically(input: Omit<GenerateScheduleInput, 'customInstructions'>): GenerateScheduleOutput {
     const { lessons, startDate, endDate, isLazy, prefersMultipleLessons } = input;
@@ -13,10 +18,9 @@ export function generateScheduleAlgorithmically(input: Omit<GenerateScheduleInpu
         return {};
     }
 
-    // Determine lessons per day
-    const baseLessonsPerDay = Math.ceil(lessons.length / days.length);
-    const lessonsPerDay = isLazy ? Math.max(1, Math.floor(baseLessonsPerDay * 0.75)) : Math.min(6, baseLessonsPerDay);
-    
+    const lessonsPerDay = Math.ceil(lessons.length / days.length);
+    const maxLessonsPerDay = isLazy ? Math.max(1, Math.floor(lessonsPerDay * 0.8)) : Math.min(6, lessonsPerDay + 1);
+
     const schedule: GenerateScheduleOutput = {};
     days.forEach(day => {
         schedule[format(day, 'yyyy-MM-dd')] = [];
@@ -24,63 +28,87 @@ export function generateScheduleAlgorithmically(input: Omit<GenerateScheduleInpu
 
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
     
+    let lessonQueue: LessonToSchedule[] = [...lessons];
     let dayIndex = 0;
-    const lastScheduledCourseOnDay: Record<string, string> = {};
-
-    lessons.forEach(lesson => {
-        let scheduled = false;
-        let startDayIndex = dayIndex; // Remember where we started looking for a slot
-
-        while (!scheduled) {
-            const dayString = format(days[dayIndex % days.length], 'yyyy-MM-dd');
-            const daySchedule = schedule[dayString];
-
-            // Check if we can add to this day
-            if (daySchedule.length < lessonsPerDay) {
-                // Check variety rule if needed
-                if (!prefersMultipleLessons) {
-                    const lastCourseId = lastScheduledCourseOnDay[dayString];
-                    if (lastCourseId && lastCourseId === lesson.courseId) {
-                        // Can't schedule, move to next day
-                    } else {
-                        // It's okay to schedule
-                        const time = studyTimes[daySchedule.length % studyTimes.length];
-                        daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
-                        lastScheduledCourseOnDay[dayString] = lesson.courseId;
-                        scheduled = true;
-                        // Don't advance dayIndex yet, try to fill this day first
-                        continue;
-                    }
-                } else {
-                    // It's always okay to schedule if multiple are preferred
-                    const time = studyTimes[daySchedule.length % studyTimes.length];
-                    daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
-                    scheduled = true;
-                    // Don't advance dayIndex yet
-                    continue;
-                }
-            }
-            
-            // If we couldn't schedule, move to the next day and try again
-            dayIndex++;
-
-            // Failsafe to prevent infinite loops if schedule is too packed
-            if (dayIndex % days.length === startDayIndex) {
-                 // We've looped through all days and couldn't find a spot.
-                 // Force schedule it on the next available day that has the least items.
-                 let leastBusyDay = Object.keys(schedule).reduce((a, b) => schedule[a].length < schedule[b].length ? a : b);
-                 const daySchedule = schedule[leastBusyDay];
-                 const time = studyTimes[daySchedule.length % studyTimes.length];
-                 daySchedule.push({ lessonId: lesson.id, courseId: lesson.courseId, time, title: lesson.title });
-                 scheduled = true;
-            }
-        }
+    
+    const lessonsByCourse: Record<string, LessonToSchedule[]> = {};
+    lessonQueue.forEach(l => {
+        if (!lessonsByCourse[l.courseId]) lessonsByCourse[l.courseId] = [];
+        lessonsByCourse[l.courseId].push(l);
     });
 
-    // Remove any empty days from the schedule
+    while(lessonQueue.length > 0) {
+        const dayString = format(days[dayIndex % days.length], 'yyyy-MM-dd');
+        const daySchedule = schedule[dayString];
+
+        if (daySchedule.length >= maxLessonsPerDay) {
+            dayIndex++;
+            continue;
+        }
+        
+        let scheduledLesson = false;
+        
+        const scheduledCoursesToday = new Set(daySchedule.map(l => l.courseId));
+        
+        const courseOrder = Object.keys(lessonsByCourse).sort((a,b) => {
+            if (scheduledCoursesToday.has(a) && !scheduledCoursesToday.has(b)) return 1;
+            if (!scheduledCoursesToday.has(a) && scheduledCoursesToday.has(b)) return -1;
+            return (lessonsByCourse[b]?.length || 0) - (lessonsByCourse[a]?.length || 0);
+        });
+        
+        for (const courseId of courseOrder) {
+            if (lessonsByCourse[courseId] && lessonsByCourse[courseId].length > 0) {
+                 if (!prefersMultipleLessons && scheduledCoursesToday.has(courseId)) {
+                    continue; 
+                }
+                
+                const lessonToSchedule = lessonsByCourse[courseId].shift();
+
+                if (lessonToSchedule) {
+                    const time = studyTimes[daySchedule.length % studyTimes.length];
+                    daySchedule.push({
+                        lessonId: lessonToSchedule.id,
+                        courseId: lessonToSchedule.courseId,
+                        title: lessonToSchedule.title,
+                        time
+                    });
+
+                    lessonQueue = lessonQueue.filter(l => l.id !== lessonToSchedule.id);
+                    scheduledLesson = true;
+                    break; 
+                }
+            }
+        }
+        
+        if (!scheduledLesson) {
+             const fallbackCourse = Object.values(lessonsByCourse).find(c => c.length > 0);
+             if (fallbackCourse) {
+                 const lessonToSchedule = fallbackCourse.shift();
+                 if(lessonToSchedule) {
+                    const time = studyTimes[daySchedule.length % studyTimes.length];
+                    daySchedule.push({
+                        lessonId: lessonToSchedule.id,
+                        courseId: lessonToSchedule.courseId,
+                        title: lessonToSchedule.title,
+                        time
+                    });
+                    lessonQueue = lessonQueue.filter(l => l.id !== lessonToSchedule.id);
+                 }
+             }
+        }
+
+        dayIndex++;
+    }
+
     Object.keys(schedule).forEach(day => {
         if (schedule[day].length === 0) {
             delete schedule[day];
+        } else {
+             schedule[day].sort((a, b) => {
+                const timeA = parse(a.time, 'hh:mm a', new Date());
+                const timeB = parse(b.time, 'hh:mm a', new Date());
+                return timeA.getTime() - timeB.getTime();
+            });
         }
     });
 
