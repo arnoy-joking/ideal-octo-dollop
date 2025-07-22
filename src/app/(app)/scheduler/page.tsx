@@ -65,7 +65,6 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         if (potentialStudyDays >= totalLessons) {
             const restDayInterval = Math.floor(allAvailableDays.length / (potentialRestDays + 1));
             const newStudyDays: Date[] = [];
-            let dayCounter = 0;
             for (let i = 0; i < allAvailableDays.length; i++) {
                 if ((i + 1) % (restDayInterval + 1) !== 0 || newStudyDays.length >= potentialStudyDays) {
                     newStudyDays.push(allAvailableDays[i]);
@@ -163,8 +162,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
-  const [fromIndex, setFromIndex] = useState('');
-  const [toIndex, setToIndex] = useState('');
+  const [rangeInputs, setRangeInputs] = useState<Record<string, {from: string, to: string}>>({});
   const { toast } = useToast();
   
   const form = useForm<ScheduleRequestData>({
@@ -192,10 +190,21 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       return newState;
     });
   };
+
+  const handleRangeInputChange = (courseId: string, field: 'from' | 'to', value: string) => {
+      setRangeInputs(prev => ({
+          ...prev,
+          [courseId]: {
+              ...prev[courseId],
+              [field]: value
+          }
+      }));
+  };
   
   const handleSelectRange = (course: Course) => {
-    const start = parseInt(fromIndex, 10);
-    const end = parseInt(toIndex, 10);
+    const { from, to } = rangeInputs[course.id] || { from: '', to: '' };
+    const start = parseInt(from, 10);
+    const end = parseInt(to, 10);
 
     if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
       toast({
@@ -215,8 +224,9 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
             [course.id]: Array.from(currentSelected)
         };
     });
-    setFromIndex('');
-    setToIndex('');
+    // Clear inputs after selection
+    handleRangeInputChange(course.id, 'from', '');
+    handleRangeInputChange(course.id, 'to', '');
   };
 
 
@@ -283,6 +293,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <Accordion type="multiple" className="w-full">
                     {courses.map(course => {
                         const courseSelectedLessons = selectedLessons[course.id] || [];
+                        const courseRange = rangeInputs[course.id] || { from: '', to: '' };
                         
                         return (
                         <AccordionItem value={course.id} key={course.id}>
@@ -299,7 +310,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                                   onCheckedChange={() => toggleLesson(course.id, lesson.id)}
                                               />
                                               <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer">
-                                                 <span className="text-muted-foreground w-6 inline-block mr-2">[{index + 1}]</span>{lesson.title}
+                                                 <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
                                               </label>
                                           </div>
                                       );
@@ -308,8 +319,8 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                 <div className="mt-4 pt-4 border-t space-y-2 px-4">
                                   <h4 className="text-sm font-medium">Select Range</h4>
                                   <div className="flex items-center gap-2">
-                                      <Input value={fromIndex} onChange={(e) => setFromIndex(e.target.value)} placeholder="From" className="h-8 w-20" />
-                                      <Input value={toIndex} onChange={(e) => setToIndex(e.target.value)} placeholder="To" className="h-8 w-20" />
+                                      <Input value={courseRange.from} onChange={(e) => handleRangeInputChange(course.id, 'from', e.target.value)} placeholder="From" className="h-8 w-20" />
+                                      <Input value={courseRange.to} onChange={(e) => handleRangeInputChange(course.id, 'to', e.target.value)} placeholder="To" className="h-8 w-20" />
                                       <Button size="sm" onClick={() => handleSelectRange(course)}>Select</Button>
                                   </div>
                                 </div>
@@ -630,5 +641,3 @@ export default function SchedulerPage() {
         </main>
     );
 }
-
-    
