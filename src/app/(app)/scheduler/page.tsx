@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
