@@ -22,28 +22,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { Input } from '@/components/ui/input';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
     from: z.date({ required_error: "A start date is required." }),
     to: z.date({ required_error: "An end date is required." }),
   }),
-  isLazy: z.boolean(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 type LessonToSchedule = Lesson & { courseId: string };
 
 function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
-    const { dateRange, isLazy } = data;
+    const { dateRange } = data;
     const { from: startDate, to: endDate } = dateRange;
 
     // 1. Create correctly ordered queues for each course
@@ -57,39 +54,43 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
 
     if (allAvailableDays.length === 0 || totalLessons === 0) return {};
 
-    // 2. Determine study days based on 'isLazy'
+    // 2. Determine study days, making "lazy" the default smart behavior
     let studyDays: Date[] = [...allAvailableDays];
-    if (isLazy) {
-        const totalDays = allAvailableDays.length;
-        if (totalDays > 2) {
-            // Ensure at least one rest day, max of 1 rest day for every 3 study days
-            const restDaysCount = Math.max(1, Math.floor(totalDays / 4));
-            const studyDayCount = totalDays - restDaysCount;
-            // Only apply lazy days if it doesn't make the schedule impossible
-            if (studyDayCount >= totalLessons) { 
-                const restInterval = Math.floor(totalDays / (restDaysCount + 1));
-                 studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0 || (index + 1) > studyDayCount );
+    if (allAvailableDays.length > 3) { // Only add rest days for schedules longer than 3 days
+        const potentialRestDays = Math.max(1, Math.floor(allAvailableDays.length / 5)); // e.g. 1 rest day per 5 days
+        const potentialStudyDays = allAvailableDays.length - potentialRestDays;
+
+        // Ensure we have enough study days for all lessons before adding rest days
+        if (potentialStudyDays >= totalLessons) {
+            const restDayInterval = Math.floor(allAvailableDays.length / (potentialRestDays + 1));
+            const newStudyDays: Date[] = [];
+            let dayCounter = 0;
+            for (let i = 0; i < allAvailableDays.length; i++) {
+                if ((i + 1) % (restDayInterval + 1) !== 0 || newStudyDays.length >= potentialStudyDays) {
+                    newStudyDays.push(allAvailableDays[i]);
+                }
             }
+            studyDays = newStudyDays;
         }
     }
     
     if (studyDays.length === 0) studyDays = [allAvailableDays[0]];
 
-    // 3. Calculate how many lessons to schedule per day
-    const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
+    // 3. Calculate how many lessons to schedule per day, distributing remainder
+    const baseLessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
 
     const dailyQuotas: Record<string, number> = {};
     studyDays.forEach((day) => {
         const dayString = format(day, 'yyyy-MM-dd');
-        dailyQuotas[dayString] = lessonsPerDay;
+        dailyQuotas[dayString] = baseLessonsPerDay;
         if (remainingLessons > 0) {
             dailyQuotas[dayString]++;
             remainingLessons--;
         }
     });
 
-    // 4. Build the schedule using a robust round-robin
+    // 4. Build the schedule using a robust round-robin with lookahead
     const schedule: Schedule = {};
     allAvailableDays.forEach(day => {
       schedule[format(day, 'yyyy-MM-dd')] = [];
@@ -105,18 +106,25 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         const quota = dailyQuotas[dayString] || 0;
         
         for(let i=0; i<quota; i++) {
-            const availableCourses = selectedCourses.filter(c => courseQueues[c.id]?.length > 0).map(c => c.id);
+            const availableCourses = selectedCourses.filter(c => courseQueues[c.id]?.length > 0);
             if (availableCourses.length === 0) break;
 
-            // Find the course that was scheduled least recently to ensure variety
-            let nextCourseId = availableCourses[0];
+            // Find courses that were scheduled least recently
             let minIndex = Infinity;
-
-            for(const courseId of availableCourses) {
-                if (courseLastScheduled[courseId] < minIndex) {
-                    minIndex = courseLastScheduled[courseId];
-                    nextCourseId = courseId;
+            availableCourses.forEach(c => {
+                if (courseLastScheduled[c.id] < minIndex) {
+                    minIndex = courseLastScheduled[c.id];
                 }
+            });
+
+            const leastRecentCourses = availableCourses.filter(c => courseLastScheduled[c.id] === minIndex);
+            
+            // From the least recent, pick the one with the most lessons left to avoid clumping
+            let nextCourseId = leastRecentCourses[0].id;
+            if (leastRecentCourses.length > 1) {
+                nextCourseId = leastRecentCourses.sort((a, b) => courseQueues[b.id].length - courseQueues[a.id].length)[0].id;
+            } else {
+                nextCourseId = leastRecentCourses[0].id;
             }
             
             const lesson = courseQueues[nextCourseId].shift();
@@ -149,17 +157,19 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     return schedule;
 }
 
+
 function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
+  const [fromIndex, setFromIndex] = useState('');
+  const [toIndex, setToIndex] = useState('');
   const { toast } = useToast();
   
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
       dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 7)) },
-      isLazy: true,
     },
   });
   
@@ -181,22 +191,33 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       return newState;
     });
   };
+  
+  const handleSelectRange = (course: Course) => {
+    const start = parseInt(fromIndex, 10);
+    const end = parseInt(toIndex, 10);
 
-  const handleFillGap = (courseId: string, fromIndex: number, toIndex: number) => {
-    const course = courses.find(c => c.id === courseId);
-    if (!course) return;
+    if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
+      toast({
+        title: "Invalid Range",
+        description: `Please enter a valid range between 1 and ${course.lessons.length}.`,
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const lessonsToSelect = course.lessons.slice(fromIndex, toIndex + 1).map(l => l.id);
-
+    const lessonsToSelect = course.lessons.slice(start - 1, end).map(l => l.id);
     setSelectedLessons(prev => {
-        const currentSelected = new Set(prev[courseId] || []);
+        const currentSelected = new Set(prev[course.id] || []);
         lessonsToSelect.forEach(id => currentSelected.add(id));
         return {
             ...prev,
-            [courseId]: Array.from(currentSelected)
+            [course.id]: Array.from(currentSelected)
         };
     });
+    setFromIndex('');
+    setToIndex('');
   };
+
 
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
     return courses
@@ -238,7 +259,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       } finally {
         setIsGenerating(false);
       }
-    }, 500);
+    }, 1000);
   };
 
   return (
@@ -251,8 +272,8 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
-          <DialogTitle>Scheduler</DialogTitle>
-          <DialogDescription>Select lessons, set your preferences, and generate a smart study plan for you.</DialogDescription>
+          <DialogTitle>Create a New Schedule</DialogTitle>
+          <DialogDescription>Select lessons, set your preferences, and generate a smart study plan.</DialogDescription>
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
@@ -261,44 +282,12 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <Accordion type="multiple" className="w-full">
                     {courses.map(course => {
                         const courseSelectedLessons = selectedLessons[course.id] || [];
-                        const gaps = [];
-                        let lastSelectedIndex = -1;
-
-                        if (courseSelectedLessons.length > 1) {
-                            const selectedIndices = courseSelectedLessons
-                                .map(id => course.lessons.findIndex(l => l.id === id))
-                                .filter(index => index !== -1)
-                                .sort((a, b) => a - b);
-                            
-                            if (selectedIndices.length > 1) {
-                                for(let i = 0; i < selectedIndices.length - 1; i++) {
-                                    if (selectedIndices[i+1] > selectedIndices[i] + 1) {
-                                        gaps.push({ from: selectedIndices[i], to: selectedIndices[i+1] });
-                                    }
-                                }
-                            }
-                        }
-
+                        
                         return (
                         <AccordionItem value={course.id} key={course.id}>
                             <AccordionTrigger className="px-2">{course.title}</AccordionTrigger>
                             <AccordionContent>
                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4 pt-2">
-                                  {gaps.length > 0 && (
-                                     <div className="my-2">
-                                        {gaps.map((gap, index) => (
-                                            <Button 
-                                                key={index}
-                                                variant="link" 
-                                                size="sm"
-                                                onClick={() => handleFillGap(course.id, gap.from + 1, gap.to -1)}
-                                                className="text-primary"
-                                            >
-                                                Fill gap between lesson {gap.from + 1} and {gap.to + 1}
-                                            </Button>
-                                        ))}
-                                     </div>
-                                  )}
                                   {course.lessons.map((lesson, index) => {
                                       const isSelected = courseSelectedLessons.includes(lesson.id);
                                       return (
@@ -315,13 +304,21 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                       );
                                   })}
                                 </div>
+                                <div className="mt-4 pt-4 border-t space-y-2 px-4">
+                                  <h4 className="text-sm font-medium">Select Range</h4>
+                                  <div className="flex items-center gap-2">
+                                      <Input value={fromIndex} onChange={(e) => setFromIndex(e.target.value)} placeholder="From" className="h-8 w-20" />
+                                      <Input value={toIndex} onChange={(e) => setToIndex(e.target.value)} placeholder="To" className="h-8 w-20" />
+                                      <Button size="sm" onClick={() => handleSelectRange(course)}>Select</Button>
+                                  </div>
+                                </div>
                             </AccordionContent>
                         </AccordionItem>
                     )})}
                 </Accordion>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
                 <h3 className="font-semibold text-lg">2. Set Preferences</h3>
                 <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <Card>
@@ -373,15 +370,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                             {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
                         </CardContent>
                     </Card>
-                    
-                    <div className="space-y-2 !mt-2">
-                        <div className="flex items-center space-x-2">
-                          <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
-                          <label htmlFor="isLazy" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                            Relaxed Pace (adds rest days)
-                          </label>
-                        </div>
-                    </div>
                 </form>
             </div>
         </div>
