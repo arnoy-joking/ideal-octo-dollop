@@ -38,33 +38,36 @@ const scheduleRequestSchema = z.object({
     to: z.date({ required_error: "An end date is required." }),
   }),
   isLazy: z.boolean(),
-  prefersMultipleLessons: z.boolean(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 type LessonToSchedule = Lesson & { courseId: string };
 
 function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]): Schedule {
-    const { dateRange, isLazy, prefersMultipleLessons } = data;
+    const { dateRange, isLazy } = data;
     const { from: startDate, to: endDate } = dateRange;
     
+    // 1. Create correctly ordered queues for each course
     const courseQueues: Record<string, LessonToSchedule[]> = {};
     selectedCourses.forEach(course => {
         courseQueues[course.id] = course.lessons.map(l => ({ ...l, courseId: course.id }));
     });
     
-    const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
-    if (allAvailableDays.length === 0) return {};
-
-    let studyDays: Date[] = [...allAvailableDays];
     const totalLessons = selectedCourses.reduce((acc, course) => acc + course.lessons.length, 0);
+    const allAvailableDays = eachDayOfInterval({ start: startDate, end: endDate });
 
+    if (allAvailableDays.length === 0 || totalLessons === 0) return {};
+
+    // 2. Determine study days based on 'isLazy'
+    let studyDays: Date[] = [...allAvailableDays];
     if (isLazy) {
         const totalDays = allAvailableDays.length;
         if (totalDays > 2) {
+            // Ensure at least one rest day, max of 1 rest day for every 3 study days
             const restDaysCount = Math.max(1, Math.floor(totalDays / 4));
             const studyDayCount = totalDays - restDaysCount;
-            if (studyDayCount > 0 && totalLessons <= studyDayCount) {
+            // Only apply lazy days if it doesn't make the schedule impossible
+            if (studyDayCount >= totalLessons) { 
                 const restInterval = Math.floor(totalDays / (restDaysCount + 1));
                  studyDays = allAvailableDays.filter((_, index) => (index + 1) % restInterval !== 0 || (index + 1) > studyDayCount );
             }
@@ -72,13 +75,13 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
     }
     
     if (studyDays.length === 0) studyDays = [allAvailableDays[0]];
-    if (studyDays.length === 0) return {};
-    
+
+    // 3. Calculate how many lessons to schedule per day
     const lessonsPerDay = Math.floor(totalLessons / studyDays.length);
     let remainingLessons = totalLessons % studyDays.length;
 
     const dailyQuotas: Record<string, number> = {};
-    studyDays.forEach((day, index) => {
+    studyDays.forEach((day) => {
         const dayString = format(day, 'yyyy-MM-dd');
         dailyQuotas[dayString] = lessonsPerDay;
         if (remainingLessons > 0) {
@@ -87,13 +90,14 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
         }
     });
 
+    // 4. Build the schedule using a robust round-robin
     const schedule: Schedule = {};
     allAvailableDays.forEach(day => {
       schedule[format(day, 'yyyy-MM-dd')] = [];
     });
 
     const studyTimes = ["09:00 AM", "11:00 AM", "02:00 PM", "04:00 PM", "07:00 PM", "09:00 PM"];
-    let courseLastScheduled: Record<string, number> = {};
+    const courseLastScheduled: Record<string, number> = {};
     selectedCourses.forEach(c => courseLastScheduled[c.id] = -1);
     
     let lessonIndex = 0;
@@ -105,6 +109,7 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
             const availableCourses = selectedCourses.filter(c => courseQueues[c.id]?.length > 0).map(c => c.id);
             if (availableCourses.length === 0) break;
 
+            // Find the course that was scheduled least recently to ensure variety
             let nextCourseId = availableCourses[0];
             let minIndex = Infinity;
 
@@ -123,11 +128,13 @@ function generateSchedule(data: ScheduleRequestData, selectedCourses: Course[]):
                     title: lesson.title,
                     time: studyTimes[schedule[dayString].length % studyTimes.length],
                 });
+                // Update the 'last scheduled' index for this course
                 courseLastScheduled[nextCourseId] = lessonIndex++;
             }
         }
     });
 
+    // 5. Final cleanup
     Object.keys(schedule).forEach(day => {
       if(!schedule[day] || schedule[day].length === 0) {
         delete schedule[day];
@@ -143,13 +150,14 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
   const { toast } = useToast();
+  const [rangeValues, setRangeValues] = useState<Record<string, { from: string; to: string }>>({});
+
 
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
       dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 7)) },
       isLazy: false,
-      prefersMultipleLessons: false,
     },
   });
   
@@ -187,17 +195,31 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     });
   };
 
-  const handleFillGap = (course: Course, startIndex: number, endIndex: number) => {
-      const lessonsToSelect = course.lessons.slice(startIndex, endIndex + 1).map(l => l.id);
-      setSelectedLessons(prev => {
-          const currentSelected = new Set(prev[course.id] || []);
-          lessonsToSelect.forEach(id => currentSelected.add(id));
-          return {
-              ...prev,
-              [course.id]: Array.from(currentSelected)
-          };
-      });
+  const handleSelectRange = (course: Course) => {
+    const { from, to } = rangeValues[course.id] || { from: '', to: '' };
+    const fromIndex = parseInt(from, 10) - 1;
+    const toIndex = parseInt(to, 10) - 1;
+
+    if (isNaN(fromIndex) || isNaN(toIndex) || fromIndex < 0 || toIndex >= course.lessons.length || fromIndex > toIndex) {
+        toast({
+            title: 'Invalid Range',
+            description: 'Please enter a valid start and end number for the lesson range.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
+    const lessonsToSelect = course.lessons.slice(fromIndex, toIndex + 1).map(l => l.id);
+    setSelectedLessons(prev => {
+        const currentSelected = new Set(prev[course.id] || []);
+        lessonsToSelect.forEach(id => currentSelected.add(id));
+        return {
+            ...prev,
+            [course.id]: Array.from(currentSelected)
+        };
+    });
   };
+
 
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
     return courses
@@ -263,25 +285,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                     {courses.map(course => {
                         const courseSelectedLessons = selectedLessons[course.id] || [];
                         const isAllSelected = courseSelectedLessons.length === course.lessons.length;
-                        const isIndeterminate = courseSelectedLessons.length > 0 && !isAllSelected;
-
-                        let gapToFill: { start: number; end: number } | null = null;
-                        if (courseSelectedLessons.length >= 2) {
-                            const selectedIndices = courseSelectedLessons
-                                .map(id => course.lessons.findIndex(l => l.id === id))
-                                .filter(index => index !== -1)
-                                .sort((a, b) => a - b);
-                            
-                            const firstIndex = selectedIndices[0];
-                            const lastIndex = selectedIndices[selectedIndices.length - 1];
-                            
-                            for (let i = firstIndex + 1; i < lastIndex; i++) {
-                                if (!courseSelectedLessons.includes(course.lessons[i].id)) {
-                                    gapToFill = { start: firstIndex + 1, end: lastIndex - 1 };
-                                    break;
-                                }
-                            }
-                        }
 
                         return (
                         <AccordionItem value={course.id} key={course.id}>
@@ -298,19 +301,24 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                </AccordionTrigger>
                            </div>
                             <AccordionContent>
-                                {gapToFill && (
-                                    <div className="px-4 py-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full"
-                                            onClick={() => handleFillGap(course, gapToFill!.start, gapToFill!.end)}
-                                        >
-                                            Fill gap ({gapToFill.end - gapToFill.start + 1} lessons)
-                                        </Button>
-                                    </div>
-                                )}
-                                <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4">
+                               <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4 pt-2">
+                                  <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                                      <Input
+                                          type="number"
+                                          placeholder="From"
+                                          className="h-8 w-20"
+                                          value={rangeValues[course.id]?.from || ''}
+                                          onChange={(e) => setRangeValues(prev => ({...prev, [course.id]: {...(prev[course.id] || { to: '' }), from: e.target.value}}))}
+                                      />
+                                      <Input
+                                          type="number"
+                                          placeholder="To"
+                                          className="h-8 w-20"
+                                           value={rangeValues[course.id]?.to || ''}
+                                          onChange={(e) => setRangeValues(prev => ({...prev, [course.id]: {...(prev[course.id] || { from: '' }), to: e.target.value}}))}
+                                      />
+                                      <Button size="sm" variant="secondary" onClick={() => handleSelectRange(course)}>Select</Button>
+                                  </div>
                                     {course.lessons.map((lesson, index) => {
                                         const isSelected = courseSelectedLessons.includes(lesson.id);
                                         return (
@@ -394,17 +402,6 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                                 <CardDescription className="text-xs">Prefer a more spread-out schedule with rest days?</CardDescription>
                             </div>
                             <Switch id="isLazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} className="ml-auto"/>
-                        </CardHeader>
-                    </Card>
-
-                    <Card>
-                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
-                            <FastForward className="h-6 w-6 text-primary" />
-                             <div>
-                                <CardTitle className="text-base">Multiple Daily Lessons</CardTitle>
-                                <CardDescription className="text-xs">Allow scheduling multiple lessons from the same course on one day?</CardDescription>
-                            </div>
-                            <Switch id="prefersMultipleLessons" checked={form.watch('prefersMultipleLessons')} onCheckedChange={(checked) => form.setValue('prefersMultipleLessons', checked)} className="ml-auto"/>
                         </CardHeader>
                     </Card>
                 </form>
