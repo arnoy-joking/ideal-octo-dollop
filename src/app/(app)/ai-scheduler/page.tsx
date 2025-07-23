@@ -340,7 +340,11 @@ export default function AISchedulerPage() {
             const originalLesson = course.lessons.find(l => l.id === lesson.lessonId);
             if (!originalLesson) return;
             
-            setWatchedLessons(prev => new Set(prev).add(lesson.lessonId));
+            setWatchedLessons(prev => {
+                const newSet = new Set(prev);
+                newSet.add(lesson.lessonId);
+                return newSet;
+            });
             await markLessonAsWatchedAction(currentUser.id, originalLesson, course.id);
             toast({
                 title: "Progress Saved!",
@@ -403,21 +407,6 @@ export default function AISchedulerPage() {
             setIsDownloading(false);
         }
     };
-    
-    const parseFlexibleTime = (timeStr: string) => {
-        const now = new Date();
-        const formatsToTry = ['hh:mm a', 'h:mm a', 'HH:mm'];
-        for (const fmt of formatsToTry) {
-            try {
-                const parsed = parse(timeStr.toUpperCase(), fmt, now);
-                if (!isNaN(parsed.getTime())) {
-                    return parsed;
-                }
-            } catch (e) {
-            }
-        }
-        return new Date('invalid');
-    };
 
     if (isLoading || isUserLoading) {
         return (
@@ -465,37 +454,29 @@ export default function AISchedulerPage() {
                                         <CardTitle>{format(parseISO(day.date), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                       <div className="relative pl-6">
-                                            {day.lessons && day.lessons.length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
-                                            <ul className="space-y-4">
-                                                {day.lessons && day.lessons.map((lesson) => {
-                                                    const isWatched = watchedLessons.has(lesson.lessonId);
-                                                    const lessonTime = parseFlexibleTime(lesson.time);
-                                                    const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';
-                                                    const course = courseMap.get(lesson.courseId);
+                                        <ul className="space-y-3">
+                                            {day.lessons && day.lessons.map((lesson) => {
+                                                const isWatched = watchedLessons.has(lesson.lessonId);
+                                                const course = courseMap.get(lesson.courseId);
 
-                                                    return (
-                                                        <li key={lesson.lessonId} className="relative flex items-start gap-4">
-                                                            <div className="text-right flex-shrink-0 w-20">
-                                                                <p className="font-bold text-primary">{formattedTime}</p>
-                                                            </div>
-                                                            <div className="relative flex-grow pl-6">
-                                                                <button
-                                                                    className="absolute -left-3 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-background border-2 border-primary flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:border-muted-foreground"
-                                                                    onClick={() => handleLessonToggle(lesson)}
-                                                                    disabled={isWatched}
-                                                                    aria-label={`Mark ${lesson.title} as complete`}
-                                                                >
-                                                                    {isWatched && <CheckCircle className="h-5 w-5 text-green-700 bg-background rounded-full" />}
-                                                                </button>
-                                                                <p className={cn("font-semibold", isWatched && "line-through text-muted-foreground")}>{lesson.title}</p>
-                                                                {course && <p className={cn("text-sm text-muted-foreground", isWatched && "line-through")}>{course.title}</p>}
-                                                            </div>
-                                                        </li>
-                                                    );
-                                                })}
-                                            </ul>
-                                        </div>
+                                                return (
+                                                    <li key={lesson.lessonId} className="flex items-start gap-4">
+                                                        <button
+                                                            className="mt-1 flex-shrink-0 h-5 w-5 rounded-full border-2 border-primary flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:border-muted-foreground"
+                                                            onClick={() => handleLessonToggle(lesson)}
+                                                            disabled={isWatched}
+                                                            aria-label={`Mark ${lesson.title} as complete`}
+                                                        >
+                                                            {isWatched && <CheckCircle className="h-5 w-5 text-green-700 bg-background rounded-full" />}
+                                                        </button>
+                                                        <div className="flex-grow">
+                                                            <p className={cn("font-semibold", isWatched && "line-through text-muted-foreground")}>{lesson.title}</p>
+                                                            {course && <p className={cn("text-sm text-muted-foreground", isWatched && "line-through")}>{course.title}</p>}
+                                                        </div>
+                                                    </li>
+                                                );
+                                            })}
+                                        </ul>
                                     </CardContent>
                                 </Card>
                             ))}
