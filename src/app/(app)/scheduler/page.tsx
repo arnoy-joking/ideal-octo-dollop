@@ -10,15 +10,14 @@ import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
+import type { Course, ScheduledLesson, Schedule } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
 import { useUser } from '@/context/user-context';
-import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Calendar } from '@/components/ui/calendar';
@@ -27,9 +26,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, CalendarDays } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Calendar as CalendarIcon, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
+import type { GenerateScheduleOutput } from '@/lib/types';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
@@ -43,71 +43,74 @@ type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
-  const [rangeInputs, setRangeInputs] = useState<Record<string, {from: string, to: string}>>({});
+  const [selectedLessons, setSelectedLessons] = useState<Record<string, Set<string>>>({});
   const { toast } = useToast();
+  const workerRef = useRef<Worker>();
   
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+    workerRef.current.onmessage = (event: MessageEvent<GenerateScheduleOutput | { error: string }>) => {
+        setIsGenerating(false);
+        if ('error' in event.data) {
+            toast({ title: 'Error', description: `An unexpected error occurred: ${event.data.error}`, variant: 'destructive' });
+        } else {
+            const dailyPlans = Object.entries(event.data).map(([date, lessons]) => ({ date, lessons }));
+            onScheduleGenerated({ schedule: dailyPlans });
+            toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
+            setIsOpen(false);
+            setSelectedLessons({});
+            form.reset();
+        }
+    };
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [onScheduleGenerated, toast]);
+
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
-      dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 7)) },
+      dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 13)) },
     },
   });
   
   const dateRange = form.watch('dateRange');
 
-  const toggleLesson = (courseId: string, lessonId: string) => {
+  const handleLessonToggle = (courseId: string, lessonId: string) => {
     setSelectedLessons(prev => {
-      const currentLessons = prev[courseId] || [];
-      const newLessons = currentLessons.includes(lessonId)
-        ? currentLessons.filter(id => id !== lessonId)
-        : [...currentLessons, lessonId];
-      
-      const newState = { ...prev };
-      if (newLessons.length > 0) {
-        newState[courseId] = newLessons;
-      } else {
-        delete newState[courseId];
-      }
-      return newState;
+        const newSelected = { ...prev };
+        if (!newSelected[courseId]) {
+            newSelected[courseId] = new Set();
+        }
+
+        const courseSet = new Set(newSelected[courseId]);
+
+        if (courseSet.has(lessonId)) {
+            courseSet.delete(lessonId);
+        } else {
+            courseSet.add(lessonId);
+        }
+
+        if (courseSet.size === 0) {
+            delete newSelected[courseId];
+        } else {
+            newSelected[courseId] = courseSet;
+        }
+
+        return newSelected;
     });
   };
 
-  const handleRangeInputChange = (courseId: string, field: 'from' | 'to', value: string) => {
-      setRangeInputs(prev => ({
-          ...prev,
-          [courseId]: {
-              ...prev[courseId],
-              [field]: value
+  const handleSelectAllInCourse = (course: Course, shouldSelect: boolean) => {
+      setSelectedLessons(prev => {
+          const newSelected = { ...prev };
+          if (shouldSelect) {
+              newSelected[course.id] = new Set(course.lessons.map(l => l.id));
+          } else {
+              delete newSelected[course.id];
           }
-      }));
-  };
-  
-  const handleSelectRange = (course: Course) => {
-    const { from, to } = rangeInputs[course.id] || { from: '', to: '' };
-    const start = parseInt(from, 10);
-    const end = parseInt(to, 10);
-
-    if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
-      toast({
-        title: "Invalid Range",
-        description: `Please enter a valid range between 1 and ${course.lessons.length}.`,
-        variant: "destructive"
+          return newSelected;
       });
-      return;
-    }
-
-    const lessonsToSelect = course.lessons.slice(start - 1, end).map(l => l.id);
-    setSelectedLessons(prev => {
-        const currentSelected = new Set(prev[course.id] || []);
-        lessonsToSelect.forEach(id => currentSelected.add(id));
-        return {
-            ...prev,
-            [course.id]: Array.from(currentSelected)
-        };
-    });
-    handleRangeInputChange(course.id, 'from', '');
-    handleRangeInputChange(course.id, 'to', '');
   };
 
 
@@ -115,10 +118,11 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     return courses
       .map(course => ({
         ...course,
-        lessons: course.lessons.filter(lesson => selectedLessons[course.id]?.includes(lesson.id)),
+        lessons: course.lessons.filter(lesson => selectedLessons[course.id]?.has(lesson.id)),
       }))
       .filter(course => course.lessons.length > 0);
   }, [selectedLessons, courses]);
+
 
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
@@ -132,90 +136,76 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
     
     setIsGenerating(true);
 
-    setTimeout(() => {
-      try {
-        const result = generateScheduleAlgorithmically({
-            ...data,
-            courses: selectedCoursesForGeneration,
-            startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
-            endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-            isLazy: false,
-            prefersMultipleLessons: false
-        });
-        
-        if (result && Object.keys(result).length > 0) {
-          onScheduleGenerated(result);
-          toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
-          setIsOpen(false);
-          setSelectedLessons({});
-          form.reset();
-        } else {
-          throw new Error('The algorithm failed to produce a schedule for the given constraints.');
-        }
-      } catch (error) {
-        console.error(error);
-        toast({ title: 'Error', description: `An unexpected error occurred: ${(error as Error).message}`, variant: 'destructive' });
-      } finally {
-        setIsGenerating(false);
-      }
-    }, 1000);
+    workerRef.current?.postMessage({
+        courses: selectedCoursesForGeneration,
+        startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
+        endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
+    });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Sparkles className="mr-2" />
+          <CalendarDays className="mr-2" />
           Create New Schedule
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
           <DialogTitle>Create a New Schedule</DialogTitle>
-          <DialogDescription>Select lessons, set your preferences, and generate a smart study plan.</DialogDescription>
+          <DialogDescription>Select lessons, set your preferences, and generate a study plan.</DialogDescription>
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
             <div className="space-y-4">
                 <h3 className="font-semibold text-lg">1. Select Lessons</h3>
-                <Accordion type="multiple" className="w-full">
-                    {courses.map(course => {
-                        const courseSelectedLessons = selectedLessons[course.id] || [];
-                        const courseRange = rangeInputs[course.id] || { from: '', to: '' };
-                        
-                        return (
-                        <AccordionItem value={course.id} key={course.id}>
-                            <AccordionTrigger className="px-2">{course.title}</AccordionTrigger>
-                            <AccordionContent>
-                               <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4 pt-2">
-                                  {course.lessons.map((lesson, index) => {
-                                      const isSelected = courseSelectedLessons.includes(lesson.id);
-                                      return (
-                                          <div key={lesson.id} className="flex items-center space-x-2">
-                                              <Checkbox
-                                                  id={`${course.id}-${lesson.id}`}
-                                                  checked={isSelected}
-                                                  onCheckedChange={() => toggleLesson(course.id, lesson.id)}
-                                              />
-                                              <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer">
-                                                 <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
-                                              </label>
-                                          </div>
-                                      );
-                                  })}
-                                </div>
-                                <div className="mt-4 pt-4 border-t space-y-2 px-4">
-                                  <h4 className="text-sm font-medium">Select Range</h4>
-                                  <div className="flex items-center gap-2">
-                                      <Input value={courseRange.from} onChange={(e) => handleRangeInputChange(course.id, 'from', e.target.value)} placeholder="From" className="h-8 w-20" />
-                                      <Input value={courseRange.to} onChange={(e) => handleRangeInputChange(course.id, 'to', e.target.value)} placeholder="To" className="h-8 w-20" />
-                                      <Button size="sm" onClick={() => handleSelectRange(course)}>Select</Button>
-                                  </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    )})}
-                </Accordion>
+                 <Card>
+                    <CardContent className="p-2 max-h-96 overflow-y-auto">
+                        <Accordion type="multiple" className="w-full">
+                            {courses.map(course => {
+                                const courseSelectedLessons = selectedLessons[course.id] || new Set();
+                                const isAllSelected = course.lessons.length > 0 && courseSelectedLessons.size === course.lessons.length;
+                                const isIndeterminate = courseSelectedLessons.size > 0 && !isAllSelected;
+
+                                return (
+                                <AccordionItem value={course.id} key={course.id}>
+                                    <AccordionTrigger className="px-2 hover:no-underline">
+                                        <div className="flex items-center space-x-3 flex-1">
+                                            <Checkbox
+                                                id={`course-select-all-${course.id}`}
+                                                checked={isAllSelected}
+                                                aria-checked={isIndeterminate ? 'mixed' : isAllSelected}
+                                                onCheckedChange={(checked) => handleSelectAllInCourse(course, !!checked)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <label htmlFor={`course-select-trigger-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer text-left">
+                                                {course.title}
+                                                <p className="text-xs text-muted-foreground">{courseSelectedLessons.size} / {course.lessons.length} lessons selected</p>
+                                            </label>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8 pt-2">
+                                            {course.lessons.map((lesson, index) => (
+                                                <div key={lesson.id} className="flex items-center space-x-3">
+                                                    <Checkbox
+                                                        id={`${course.id}-${lesson.id}`}
+                                                        checked={courseSelectedLessons.has(lesson.id)}
+                                                        onCheckedChange={() => handleLessonToggle(course.id, lesson.id)}
+                                                    />
+                                                    <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none flex-1 cursor-pointer">
+                                                        <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )})}
+                        </Accordion>
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="space-y-4">
@@ -223,7 +213,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
-                            <CalendarDays className="h-6 w-6 text-primary" />
+                            <CalendarIcon className="h-6 w-6 text-primary" />
                              <div>
                                 <CardTitle className="text-base">Date Range</CardTitle>
                                 <CardDescription className="text-xs">Pick a start and end date for your plan.</CardDescription>
@@ -277,11 +267,11 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         <DialogFooter className="pt-4 border-t">
           <div className="flex items-center text-sm text-muted-foreground mr-auto">
             <Info className="mr-2 h-4 w-4" />
-            {totalSelectedLessons} lessons selected
+            {totalSelectedLessons} lessons in {selectedCoursesForGeneration.length} courses
           </div>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
+            {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <CalendarDays className="mr-2" />}
             Generate Schedule
           </Button>
         </DialogFooter>
@@ -303,8 +293,8 @@ export default function SchedulerPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const sortedScheduleDays = useMemo(() => {
-        if (!schedule) return [];
-        return Object.keys(schedule).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        if (!schedule || !schedule.schedule) return [];
+        return [...schedule.schedule].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [schedule]);
 
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
@@ -455,7 +445,7 @@ export default function SchedulerPage() {
                         <p className="text-muted-foreground mt-2">Your personalized study plan.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                         {schedule && Object.keys(schedule).length > 0 && (
+                         {schedule && schedule.schedule.length > 0 && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloading}>
                                     {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
@@ -475,15 +465,15 @@ export default function SchedulerPage() {
                     {sortedScheduleDays.length > 0 ? (
                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {sortedScheduleDays.map(day => (
-                                <Card key={day} className={cn(isToday(parseISO(day)) && "border-primary border-2")}>
+                                <Card key={day.date} className={cn(isToday(parseISO(day.date)) && "border-primary border-2")}>
                                     <CardHeader>
-                                        <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
+                                        <CardTitle>{format(parseISO(day.date), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                        <div className="relative pl-6">
-                                            {schedule![day].length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
+                                            {day.lessons && day.lessons.length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
                                             <ul className="space-y-4">
-                                                {schedule![day].map((lesson, index) => {
+                                                {day.lessons && day.lessons.map((lesson) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);
                                                     const lessonTime = parseFlexibleTime(lesson.time);
                                                     const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';

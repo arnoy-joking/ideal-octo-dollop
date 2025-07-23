@@ -3,7 +3,7 @@ import type { GenerateScheduleInput } from '../lib/types';
 import { generateScheduleAlgorithmically } from '../lib/algorithmic-scheduler';
 
 
-self.onmessage = async (event: MessageEvent<GenerateScheduleInput>) => {
+self.onmessage = async (event: MessageEvent<Omit<GenerateScheduleInput, 'isLazy' | 'prefersMultipleLessons'>>) => {
   try {
     const finalSchedule = generateScheduleAlgorithmically(event.data);
     self.postMessage(finalSchedule);
