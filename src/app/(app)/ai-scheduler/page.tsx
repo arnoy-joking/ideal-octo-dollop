@@ -20,7 +20,6 @@ import { generateStudySchedulePlan } from '@/ai/flows/scheduler-flow';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -85,7 +84,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             isLazy: data.isLazy
         });
 
-        if (result && Object.keys(result).length > 0) {
+        if (result && result.schedule && result.schedule.length > 0) {
             onScheduleGenerated(result);
             toast({ title: 'AI Schedule Generated!', description: 'Your new smart study plan is ready.' });
             setIsOpen(false);
@@ -237,8 +236,8 @@ export default function AISchedulerPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const sortedScheduleDays = useMemo(() => {
-        if (!schedule) return [];
-        return Object.keys(schedule).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        if (!schedule || !schedule.schedule) return [];
+        return schedule.schedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [schedule]);
 
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
@@ -389,7 +388,7 @@ export default function AISchedulerPage() {
                         <p className="text-muted-foreground mt-2">Let AI create a balanced, personalized study plan for you.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                         {schedule && Object.keys(schedule).length > 0 && (
+                         {schedule && schedule.schedule && schedule.schedule.length > 0 && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloading}>
                                     {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
@@ -409,15 +408,15 @@ export default function AISchedulerPage() {
                     {sortedScheduleDays.length > 0 ? (
                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                             {sortedScheduleDays.map(day => (
-                                <Card key={day} className={cn(isToday(parseISO(day)) && "border-primary border-2")}>
+                                <Card key={day.date} className={cn(isToday(parseISO(day.date)) && "border-primary border-2")}>
                                     <CardHeader>
-                                        <CardTitle>{format(parseISO(day), 'EEEE, MMMM d')}</CardTitle>
+                                        <CardTitle>{format(parseISO(day.date), 'EEEE, MMMM d')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                        <div className="relative pl-6">
-                                            {schedule![day].length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
+                                            {day.lessons.length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
                                             <ul className="space-y-4">
-                                                {schedule![day].map((lesson, index) => {
+                                                {day.lessons.map((lesson) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);
                                                     const lessonTime = parseFlexibleTime(lesson.time);
                                                     const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';

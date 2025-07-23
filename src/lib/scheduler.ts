@@ -5,11 +5,11 @@ import type { Schedule } from './types';
 
 const scheduleCollectionName = 'schedules';
 
-export async function getSchedule(userId: string): Promise<Schedule | null> {
+export async function getScheduleData(userId: string): Promise<{ schedule: any } | null> {
     const scheduleDocRef = doc(db, scheduleCollectionName, userId);
     const docSnap = await getDoc(scheduleDocRef);
     if (docSnap.exists()) {
-        return docSnap.data().schedule as Schedule;
+        return docSnap.data() as { schedule: any };
     }
     return null;
 }

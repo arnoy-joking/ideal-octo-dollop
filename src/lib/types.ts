@@ -74,10 +74,14 @@ export const ScheduledLessonSchema = z.object({
 });
 export type ScheduledLesson = z.infer<typeof ScheduledLessonSchema>;
 
-export const ScheduleSchema = z.record(
-  z.string().describe("The date in YYYY-MM-DD format."),
-  z.array(ScheduledLessonSchema)
-).describe("The full study schedule, with dates as keys.");
+const DailyPlanSchema = z.object({
+  date: z.string().describe("The date in YYYY-MM-DD format."),
+  lessons: z.array(ScheduledLessonSchema).describe("An array of lessons scheduled for this day."),
+});
+
+export const ScheduleSchema = z.object({
+    schedule: z.array(DailyPlanSchema).describe("The full study schedule, as an array of daily plans."),
+});
 export type Schedule = z.infer<typeof ScheduleSchema>;
 
 
