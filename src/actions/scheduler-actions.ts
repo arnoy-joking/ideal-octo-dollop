@@ -7,37 +7,41 @@ import type { Schedule } from '@/lib/types';
 import { z } from 'zod';
 import { ScheduleSchema } from '@/lib/types';
 
+// Helper to transform the new structure to the old one for DB compatibility
+function transformToDbFormat(schedule: Schedule): Record<string, any> {
+    if (!schedule || !Array.isArray(schedule.schedule)) {
+        return {};
+    }
+    const dbSchedule: Record<string, any> = {};
+    schedule.schedule.forEach(day => {
+        dbSchedule[day.date] = day.lessons;
+    });
+    return dbSchedule;
+}
+
 // Helper to transform the old DB structure to the new one
 function transformFromDbFormat(dbData: any): Schedule | null {
-    if (!dbData || typeof dbData !== 'object') {
-        // It might already be in the new format or is invalid
-        if (dbData && dbData.schedule) {
-            try {
-                // Ensure it conforms to the schema before returning
-                return ScheduleSchema.parse(dbData);
-            } catch (e) {
-                // If parsing fails, it's not in the new format.
-                // Fallback to checking if it's the old format.
-            }
+    // If it's already in the new format, just return it after validation
+    if (dbData && dbData.schedule && Array.isArray(dbData.schedule)) {
+        try {
+            return ScheduleSchema.parse(dbData);
+        } catch (e) {
+            console.error("Could not parse schedule from DB, it might be the old format.", e);
+            // Fallback to old format conversion if parsing fails
         }
     }
 
-    if (dbData && !dbData.schedule && typeof dbData === 'object' && !Array.isArray(dbData)) {
+    if (!dbData || typeof dbData !== 'object' || Array.isArray(dbData)) {
+         return null;
+    }
+    
+    // This handles the old format where keys are dates
+    if (dbData && !dbData.schedule) {
         const dailyPlans = Object.keys(dbData).map(date => ({
             date: date,
             lessons: dbData[date]
         }));
         return { schedule: dailyPlans };
-    }
-    
-    // If it's already in the new format, just return it after validation
-    if(dbData && dbData.schedule) {
-        try {
-            return ScheduleSchema.parse(dbData);
-        } catch(e) {
-            console.error("Could not parse schedule from DB", e);
-            return null;
-        }
     }
 
     return null;

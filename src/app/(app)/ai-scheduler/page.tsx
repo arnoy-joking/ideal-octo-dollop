@@ -289,7 +289,7 @@ export default function AISchedulerPage() {
 
     const sortedScheduleDays = useMemo(() => {
         if (!schedule || !schedule.schedule) return [];
-        return schedule.schedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return [...schedule.schedule].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }, [schedule]);
 
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
@@ -466,9 +466,9 @@ export default function AISchedulerPage() {
                                     </CardHeader>
                                     <CardContent>
                                        <div className="relative pl-6">
-                                            {day.lessons.length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
+                                            {day.lessons && day.lessons.length > 1 && <div className="absolute left-[2.3rem] top-0 h-full border-l-2 border-border -translate-x-1/2"></div>}
                                             <ul className="space-y-4">
-                                                {day.lessons.map((lesson) => {
+                                                {day.lessons && day.lessons.map((lesson) => {
                                                     const isWatched = watchedLessons.has(lesson.lessonId);
                                                     const lessonTime = parseFlexibleTime(lesson.time);
                                                     const formattedTime = !isNaN(lessonTime.getTime()) ? format(lessonTime, 'h:mm a') : 'Invalid Time';

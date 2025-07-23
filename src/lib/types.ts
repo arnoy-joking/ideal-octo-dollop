@@ -70,7 +70,7 @@ export const ScheduledLessonSchema = z.object({
   lessonId: z.string(),
   courseId: z.string(),
   title: z.string(),
-  time: z.string().describe("The time for the lesson in 'hh:mm a' 12-hour format, e.g., '09:00 AM' or '02:30 PM'."),
+  time: z.string().describe("The time for the lesson in 'hh:mm a' 12-hour format, e.g., '09:00 AM' or '02:30 PM'. Should be varied and reasonably spaced throughout the day."),
 });
 export type ScheduledLesson = z.infer<typeof ScheduledLessonSchema>;
 
@@ -89,7 +89,6 @@ export const GenerateScheduleInputSchema = z.object({
   courses: z.array(z.custom<Course>()).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
-  isLazy: z.boolean().describe("User self-identifies as lazy. This implies longer breaks and fewer lessons per day."),
   prefersMultipleLessons: z.boolean().describe("User is okay with scheduling multiple lessons from the same course on the same day."),
 });
 export type GenerateScheduleInput = z.infer<typeof GenerateScheduleInputSchema>;
