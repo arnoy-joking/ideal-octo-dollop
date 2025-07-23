@@ -25,7 +25,6 @@ Your output MUST be a plan that specifies which lessons to study on which days, 
 **User Preferences:**
 - Start Date: {{{startDate}}}
 - End Date: {{{endDate}}}
-- Relaxed Pace: {{isLazy}}
 
 **Available Courses & Their Lessons (in sequence):**
 {{#each courses}}
@@ -40,9 +39,10 @@ Your output MUST be a plan that specifies which lessons to study on which days, 
 1.  **Create Daily Plan:** For each day from the start date to the end date (inclusive), create a daily plan object.
 2.  **Strict Sequencing:** You MUST schedule lessons for each course in the exact order they are provided. Never schedule a lesson before its predecessor from the same course is scheduled.
 3.  **Balance Subjects:** Distribute the courses evenly throughout the period. A user should not study the same subject multiple times a day if other subjects are available and can be scheduled. Rotate subjects to keep it interesting. Avoid creating monotonous, repetitive daily patterns.
-4.  **Adhere to Preferences:** If 'isLazy' is true, include some rest days where the array of scheduled lessons is empty. Distribute these rest days realistically (e.g., one every 3-4 days). Don't just put them all at the end.
-5.  **Assign Times:** For each scheduled lesson, assign a reasonable time in 'hh:mm a' format (e.g., '09:00 AM', '02:30 PM'). Times within a single day should be chronological.
-6.  **Output Format:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', 'title', and 'time'.
+4.  **Schedule ALL Lessons:** You MUST schedule ALL lessons provided in the input within the given date range. Do not skip any lessons. If all lessons do not fit, distribute them as evenly as possible, even if it means scheduling many lessons on some days.
+5.  **No Rest Days:** Do NOT include any rest days. Every day in the range should have at least one lesson if there are lessons to be scheduled.
+6.  **Assign Times:** For each scheduled lesson, assign a reasonable time in 'hh:mm a' format (e.g., '09:00 AM', '02:30 PM'). Times within a single day should be chronological.
+7.  **Output Format:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', 'title', and 'time'.
 `
 });
 

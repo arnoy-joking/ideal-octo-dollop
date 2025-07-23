@@ -25,7 +25,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -36,7 +35,6 @@ const scheduleRequestSchema = z.object({
     from: z.date({ required_error: "A start date is required." }),
     to: z.date({ required_error: "An end date is required." }),
   }),
-  isLazy: z.boolean(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
@@ -51,7 +49,6 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
       dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 13)) },
-      isLazy: true,
     },
   });
   
@@ -122,7 +119,6 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             courses: selectedCoursesForGeneration,
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-            isLazy: data.isLazy
         });
 
         if (result && result.schedule && result.schedule.length > 0) {
@@ -257,17 +253,6 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
                             </Popover>
                             {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
                             {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader className="pb-4">
-                            <CardTitle className="text-base">Pacing</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                             <div className="flex items-center space-x-2">
-                                <Switch id="is-lazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
-                                <Label htmlFor="is-lazy">Prefer a relaxed pace (includes rest days)</Label>
-                            </div>
                         </CardContent>
                     </Card>
                 </form>

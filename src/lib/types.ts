@@ -98,6 +98,5 @@ export const GenerateSchedulePlanInputSchema = z.object({
   courses: z.array(z.custom<Course>()).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
-  isLazy: z.boolean().describe("User self-identifies as lazy. This implies longer breaks and fewer lessons per day."),
 });
 export type GenerateSchedulePlanInput = z.infer<typeof GenerateSchedulePlanInputSchema>;
