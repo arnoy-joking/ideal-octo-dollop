@@ -48,7 +48,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   const workerRef = useRef<Worker>();
   
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../../workers/scheduler.worker.ts', import.meta.url));
+    workerRef.current = new Worker(new URL('../../../workers/scheduler.worker.ts', import.meta.url));
     workerRef.current.onmessage = (event: MessageEvent<GenerateScheduleOutput | { error: string }>) => {
         setIsGenerating(false);
         if ('error' in event.data) {
@@ -445,7 +445,7 @@ export default function SchedulerPage() {
                         <p className="text-muted-foreground mt-2">Your personalized study plan.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                         {schedule && schedule.schedule.length > 0 && (
+                         {schedule && schedule.schedule && schedule.schedule.length > 0 && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloading}>
                                     {isDownloading ? <Loader2 className="mr-2 animate-spin" /> : <Download className="mr-2" />}
@@ -519,3 +519,5 @@ export default function SchedulerPage() {
         </main>
     );
 }
+
+    
