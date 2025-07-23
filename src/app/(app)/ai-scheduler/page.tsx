@@ -29,6 +29,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
@@ -43,7 +44,7 @@ type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedCourses, setSelectedCourses] = useState<Record<string, boolean>>({});
+  const [selectedLessons, setSelectedLessons] = useState<Record<string, Set<string>>>({});
   const { toast } = useToast();
   
   const form = useForm<ScheduleRequestData>({
@@ -56,13 +57,47 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   
   const dateRange = form.watch('dateRange');
 
-  const toggleCourse = (courseId: string) => {
-    setSelectedCourses(prev => ({...prev, [courseId]: !prev[courseId]}));
+  const handleLessonToggle = (courseId: string, lessonId: string) => {
+    setSelectedLessons(prev => {
+        const newSelected = { ...prev };
+        if (!newSelected[courseId]) {
+            newSelected[courseId] = new Set();
+        }
+
+        if (newSelected[courseId].has(lessonId)) {
+            newSelected[courseId].delete(lessonId);
+            if (newSelected[courseId].size === 0) {
+                delete newSelected[courseId];
+            }
+        } else {
+            newSelected[courseId].add(lessonId);
+        }
+        return newSelected;
+    });
   };
 
+  const handleSelectAllInCourse = (course: Course, shouldSelect: boolean) => {
+      setSelectedLessons(prev => {
+          const newSelected = { ...prev };
+          if (shouldSelect) {
+              newSelected[course.id] = new Set(course.lessons.map(l => l.id));
+          } else {
+              delete newSelected[course.id];
+          }
+          return newSelected;
+      });
+  };
+
+
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
-    return courses.filter(course => selectedCourses[course.id]);
-  }, [selectedCourses, courses]);
+    return courses
+      .map(course => ({
+        ...course,
+        lessons: course.lessons.filter(lesson => selectedLessons[course.id]?.has(lesson.id)),
+      }))
+      .filter(course => course.lessons.length > 0);
+  }, [selectedLessons, courses]);
+
 
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
@@ -70,7 +105,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
 
   const onSubmit = async (data: ScheduleRequestData) => {
     if (selectedCoursesForGeneration.length === 0) {
-      toast({ title: 'No Courses Selected', description: 'Please select at least one course to schedule.', variant: 'destructive' });
+      toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
       return;
     }
     
@@ -88,7 +123,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             onScheduleGenerated(result);
             toast({ title: 'AI Schedule Generated!', description: 'Your new smart study plan is ready.' });
             setIsOpen(false);
-            setSelectedCourses({});
+            setSelectedLessons({});
             form.reset();
         } else {
             throw new Error('The AI failed to produce a schedule.');
@@ -112,30 +147,56 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
           <DialogTitle>Create a New AI-Powered Schedule</DialogTitle>
-          <DialogDescription>Select courses, set your preferences, and let AI generate a smart study plan.</DialogDescription>
+          <DialogDescription>Select courses and lessons, set your preferences, and let AI generate a smart study plan.</DialogDescription>
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
             <div className="space-y-4">
-                <h3 className="font-semibold text-lg">1. Select Courses</h3>
+                <h3 className="font-semibold text-lg">1. Select Lessons</h3>
                 <Card>
-                    <CardContent className="p-4 max-h-96 overflow-y-auto">
-                        <div className="space-y-4">
-                            {courses.map(course => (
-                                <div key={course.id} className="flex items-center space-x-3 p-3 rounded-md border hover:bg-muted/50">
-                                    <Checkbox
-                                        id={`course-${course.id}`}
-                                        checked={!!selectedCourses[course.id]}
-                                        onCheckedChange={() => toggleCourse(course.id)}
-                                        className="h-5 w-5"
-                                    />
-                                    <label htmlFor={`course-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer">
-                                        {course.title}
-                                        <p className="text-xs text-muted-foreground">{course.lessons.length} lessons</p>
-                                    </label>
-                                </div>
-                            ))}
-                        </div>
+                    <CardContent className="p-2 max-h-96 overflow-y-auto">
+                        <Accordion type="multiple" className="w-full">
+                            {courses.map(course => {
+                                const courseSelectedLessons = selectedLessons[course.id] || new Set();
+                                const isAllSelected = course.lessons.length > 0 && courseSelectedLessons.size === course.lessons.length;
+                                const isIndeterminate = courseSelectedLessons.size > 0 && !isAllSelected;
+
+                                return (
+                                <AccordionItem value={course.id} key={course.id}>
+                                    <AccordionTrigger className="px-2 hover:no-underline">
+                                        <div className="flex items-center space-x-3 flex-1">
+                                            <Checkbox
+                                                id={`course-${course.id}`}
+                                                checked={isAllSelected}
+                                                aria-label={isIndeterminate ? "Some lessons selected" : isAllSelected ? "All lessons selected" : "No lessons selected"}
+                                                onCheckedChange={(checked) => handleSelectAllInCourse(course, !!checked)}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                            <label htmlFor={`course-select-trigger-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer text-left">
+                                                {course.title}
+                                                <p className="text-xs text-muted-foreground">{courseSelectedLessons.size} / {course.lessons.length} lessons selected</p>
+                                            </label>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8 pt-2">
+                                            {course.lessons.map((lesson, index) => (
+                                                <div key={lesson.id} className="flex items-center space-x-3">
+                                                    <Checkbox
+                                                        id={`${course.id}-${lesson.id}`}
+                                                        checked={courseSelectedLessons.has(lesson.id)}
+                                                        onCheckedChange={() => handleLessonToggle(course.id, lesson.id)}
+                                                    />
+                                                    <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none flex-1 cursor-pointer">
+                                                        <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )})}
+                        </Accordion>
                     </CardContent>
                 </Card>
             </div>
