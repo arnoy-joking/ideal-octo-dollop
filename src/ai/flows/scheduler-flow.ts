@@ -45,14 +45,7 @@ const schedulerPrompt = ai.definePrompt({
 
 5.  **NO REST DAYS:** Do NOT include any rest days. Every day in the range must have at least one lesson scheduled until all lessons are assigned.
 
-6.  Dont arrange subjects for a day like this:
- Wednesday, July 30
-Programming Language Lecture 9
-ICT Decoder 26
-সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৬
-সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৭
-সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৮
-this was a example of your last output. as you know, this is not the thing smart ai does. who would want to study 3 or  lessons of a subject a day? its boring.
+6.  Dont add more than 2 lessons from a course for a day. 
 
 7.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
 `
