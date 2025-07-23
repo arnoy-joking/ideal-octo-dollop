@@ -7,36 +7,20 @@ import type { Schedule } from '@/lib/types';
 import { z } from 'zod';
 import { ScheduleSchema } from '@/lib/types';
 
-// Helper to transform the new structure to the old one for DB compatibility
-function transformToDbFormat(schedule: Schedule): Record<string, any> {
-    if (!schedule || !Array.isArray(schedule.schedule)) {
-        return {};
-    }
-    const dbSchedule: Record<string, any> = {};
-    schedule.schedule.forEach(day => {
-        dbSchedule[day.date] = day.lessons;
-    });
-    return dbSchedule;
-}
-
-// Helper to transform the old DB structure to the new one
+// Helper to transform the old DB structure (object with date keys) to the new one (object with a schedule array)
 function transformFromDbFormat(dbData: any): Schedule | null {
     // If it's already in the new format, just return it after validation
     if (dbData && dbData.schedule && Array.isArray(dbData.schedule)) {
         try {
             return ScheduleSchema.parse(dbData);
         } catch (e) {
-            console.error("Could not parse schedule from DB, it might be the old format.", e);
-            // Fallback to old format conversion if parsing fails
+            console.error("Could not parse schedule from DB. It might be malformed.", e);
+            return null; // Return null if it's in the new format but invalid
         }
     }
 
-    if (!dbData || typeof dbData !== 'object' || Array.isArray(dbData)) {
-         return null;
-    }
-    
-    // This handles the old format where keys are dates
-    if (dbData && !dbData.schedule) {
+    // Handle the old format where keys are dates
+    if (dbData && typeof dbData === 'object' && !Array.isArray(dbData) && !dbData.schedule) {
         const dailyPlans = Object.keys(dbData).map(date => ({
             date: date,
             lessons: dbData[date]
@@ -44,13 +28,16 @@ function transformFromDbFormat(dbData: any): Schedule | null {
         return { schedule: dailyPlans };
     }
 
+    // Return null for any other invalid or empty data
     return null;
 }
 
 
 export async function getScheduleAction(userId: string): Promise<Schedule | null> {
     const data = await schedulerDb.getScheduleData(userId);
-    if (data && data.schedule) {
+    // The `data` from the DB is the raw object, which might contain the `schedule` property.
+    // We pass the entire `data` object to the transformer.
+    if (data) {
         return transformFromDbFormat(data.schedule);
     }
     return null;
