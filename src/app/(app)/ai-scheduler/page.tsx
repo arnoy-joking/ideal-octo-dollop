@@ -10,15 +10,15 @@ import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import type { Course, Lesson, ScheduledLesson, Schedule } from '@/lib/types';
+import type { Course, ScheduledLesson, Schedule } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
 import { useUser } from '@/context/user-context';
-import { generateScheduleAlgorithmically } from '@/lib/algorithmic-scheduler';
+import { generateStudySchedulePlan } from '@/ai/flows/scheduler-flow';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Calendar } from '@/components/ui/calendar';
@@ -26,196 +26,119 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, CalendarDays } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
     from: z.date({ required_error: "A start date is required." }),
     to: z.date({ required_error: "An end date is required." }),
   }),
+  isLazy: z.boolean(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 
-function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
+function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedLessons, setSelectedLessons] = useState<Record<string, string[]>>({});
-  const [rangeInputs, setRangeInputs] = useState<Record<string, {from: string, to: string}>>({});
+  const [selectedCourses, setSelectedCourses] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
-      dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 7)) },
+      dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 13)) },
+      isLazy: true,
     },
   });
   
   const dateRange = form.watch('dateRange');
 
-  const toggleLesson = (courseId: string, lessonId: string) => {
-    setSelectedLessons(prev => {
-      const currentLessons = prev[courseId] || [];
-      const newLessons = currentLessons.includes(lessonId)
-        ? currentLessons.filter(id => id !== lessonId)
-        : [...currentLessons, lessonId];
-      
-      const newState = { ...prev };
-      if (newLessons.length > 0) {
-        newState[courseId] = newLessons;
-      } else {
-        delete newState[courseId];
-      }
-      return newState;
-    });
+  const toggleCourse = (courseId: string) => {
+    setSelectedCourses(prev => ({...prev, [courseId]: !prev[courseId]}));
   };
-
-  const handleRangeInputChange = (courseId: string, field: 'from' | 'to', value: string) => {
-      setRangeInputs(prev => ({
-          ...prev,
-          [courseId]: {
-              ...prev[courseId],
-              [field]: value
-          }
-      }));
-  };
-  
-  const handleSelectRange = (course: Course) => {
-    const { from, to } = rangeInputs[course.id] || { from: '', to: '' };
-    const start = parseInt(from, 10);
-    const end = parseInt(to, 10);
-
-    if (isNaN(start) || isNaN(end) || start < 1 || end > course.lessons.length || start > end) {
-      toast({
-        title: "Invalid Range",
-        description: `Please enter a valid range between 1 and ${course.lessons.length}.`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const lessonsToSelect = course.lessons.slice(start - 1, end).map(l => l.id);
-    setSelectedLessons(prev => {
-        const currentSelected = new Set(prev[course.id] || []);
-        lessonsToSelect.forEach(id => currentSelected.add(id));
-        return {
-            ...prev,
-            [course.id]: Array.from(currentSelected)
-        };
-    });
-    handleRangeInputChange(course.id, 'from', '');
-    handleRangeInputChange(course.id, 'to', '');
-  };
-
 
   const selectedCoursesForGeneration: Course[] = useMemo(() => {
-    return courses
-      .map(course => ({
-        ...course,
-        lessons: course.lessons.filter(lesson => selectedLessons[course.id]?.includes(lesson.id)),
-      }))
-      .filter(course => course.lessons.length > 0);
-  }, [selectedLessons, courses]);
+    return courses.filter(course => selectedCourses[course.id]);
+  }, [selectedCourses, courses]);
 
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
   }, [selectedCoursesForGeneration]);
 
-  const onSubmit = (data: ScheduleRequestData) => {
+  const onSubmit = async (data: ScheduleRequestData) => {
     if (selectedCoursesForGeneration.length === 0) {
-      toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to schedule.', variant: 'destructive' });
+      toast({ title: 'No Courses Selected', description: 'Please select at least one course to schedule.', variant: 'destructive' });
       return;
     }
     
     setIsGenerating(true);
 
-    setTimeout(() => {
-      try {
-        const result = generateScheduleAlgorithmically({
-            ...data,
+    try {
+        const result = await generateStudySchedulePlan({
             courses: selectedCoursesForGeneration,
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-            isLazy: false,
-            prefersMultipleLessons: false
+            isLazy: data.isLazy
         });
-        
+
         if (result && Object.keys(result).length > 0) {
-          onScheduleGenerated(result);
-          toast({ title: 'Schedule Generated!', description: 'Your new study plan is ready.' });
-          setIsOpen(false);
-          setSelectedLessons({});
-          form.reset();
+            onScheduleGenerated(result);
+            toast({ title: 'AI Schedule Generated!', description: 'Your new smart study plan is ready.' });
+            setIsOpen(false);
+            setSelectedCourses({});
+            form.reset();
         } else {
-          throw new Error('The algorithm failed to produce a schedule for the given constraints.');
+            throw new Error('The AI failed to produce a schedule.');
         }
-      } catch (error) {
+    } catch (error) {
         console.error(error);
         toast({ title: 'Error', description: `An unexpected error occurred: ${(error as Error).message}`, variant: 'destructive' });
-      } finally {
+    } finally {
         setIsGenerating(false);
-      }
-    }, 1000);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Sparkles className="mr-2" />
-          Create New Schedule
+          <Wand2 className="mr-2" />
+          Create AI Schedule
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
-          <DialogTitle>Create a New Schedule</DialogTitle>
-          <DialogDescription>Select lessons, set your preferences, and generate a smart study plan.</DialogDescription>
+          <DialogTitle>Create a New AI-Powered Schedule</DialogTitle>
+          <DialogDescription>Select courses, set your preferences, and let AI generate a smart study plan.</DialogDescription>
         </DialogHeader>
 
         <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
             <div className="space-y-4">
-                <h3 className="font-semibold text-lg">1. Select Lessons</h3>
-                <Accordion type="multiple" className="w-full">
-                    {courses.map(course => {
-                        const courseSelectedLessons = selectedLessons[course.id] || [];
-                        const courseRange = rangeInputs[course.id] || { from: '', to: '' };
-                        
-                        return (
-                        <AccordionItem value={course.id} key={course.id}>
-                            <AccordionTrigger className="px-2">{course.title}</AccordionTrigger>
-                            <AccordionContent>
-                               <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-4 pt-2">
-                                  {course.lessons.map((lesson, index) => {
-                                      const isSelected = courseSelectedLessons.includes(lesson.id);
-                                      return (
-                                          <div key={lesson.id} className="flex items-center space-x-2">
-                                              <Checkbox
-                                                  id={`${course.id}-${lesson.id}`}
-                                                  checked={isSelected}
-                                                  onCheckedChange={() => toggleLesson(course.id, lesson.id)}
-                                              />
-                                              <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex-1 cursor-pointer">
-                                                 <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
-                                              </label>
-                                          </div>
-                                      );
-                                  })}
+                <h3 className="font-semibold text-lg">1. Select Courses</h3>
+                <Card>
+                    <CardContent className="p-4 max-h-96 overflow-y-auto">
+                        <div className="space-y-4">
+                            {courses.map(course => (
+                                <div key={course.id} className="flex items-center space-x-3 p-3 rounded-md border hover:bg-muted/50">
+                                    <Checkbox
+                                        id={`course-${course.id}`}
+                                        checked={!!selectedCourses[course.id]}
+                                        onCheckedChange={() => toggleCourse(course.id)}
+                                        className="h-5 w-5"
+                                    />
+                                    <label htmlFor={`course-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer">
+                                        {course.title}
+                                        <p className="text-xs text-muted-foreground">{course.lessons.length} lessons</p>
+                                    </label>
                                 </div>
-                                <div className="mt-4 pt-4 border-t space-y-2 px-4">
-                                  <h4 className="text-sm font-medium">Select Range</h4>
-                                  <div className="flex items-center gap-2">
-                                      <Input value={courseRange.from} onChange={(e) => handleRangeInputChange(course.id, 'from', e.target.value)} placeholder="From" className="h-8 w-20" />
-                                      <Input value={courseRange.to} onChange={(e) => handleRangeInputChange(course.id, 'to', e.target.value)} placeholder="To" className="h-8 w-20" />
-                                      <Button size="sm" onClick={() => handleSelectRange(course)}>Select</Button>
-                                  </div>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    )})}
-                </Accordion>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             <div className="space-y-4">
@@ -223,7 +146,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                 <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
-                            <CalendarDays className="h-6 w-6 text-primary" />
+                            <CalendarIcon className="h-6 w-6 text-primary" />
                              <div>
                                 <CardTitle className="text-base">Date Range</CardTitle>
                                 <CardDescription className="text-xs">Pick a start and end date for your plan.</CardDescription>
@@ -270,6 +193,17 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
                             {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
                         </CardContent>
                     </Card>
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-base">Pacing</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                             <div className="flex items-center space-x-2">
+                                <Switch id="is-lazy" checked={form.watch('isLazy')} onCheckedChange={(checked) => form.setValue('isLazy', checked)} />
+                                <Label htmlFor="is-lazy">Prefer a relaxed pace (includes rest days)</Label>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </form>
             </div>
         </div>
@@ -277,12 +211,12 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
         <DialogFooter className="pt-4 border-t">
           <div className="flex items-center text-sm text-muted-foreground mr-auto">
             <Info className="mr-2 h-4 w-4" />
-            {totalSelectedLessons} lessons selected
+            {totalSelectedLessons} lessons in {selectedCoursesForGeneration.length} courses
           </div>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
-            Generate Schedule
+            {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Wand2 className="mr-2" />}
+            Generate with AI
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -290,7 +224,7 @@ function ScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Cour
   );
 }
 
-export default function SchedulerPage() {
+export default function AISchedulerPage() {
     const { currentUser, isLoading: isUserLoading } = useUser();
     const { toast } = useToast();
     const scheduleRef = useRef(null);
@@ -410,7 +344,7 @@ export default function SchedulerPage() {
                 }
             }
             
-            pdf.save('schedule.pdf');
+            pdf.save('ai-schedule.pdf');
         } catch (error) {
             console.error(error);
             toast({ title: 'PDF Download Failed', variant: 'destructive' });
@@ -451,8 +385,8 @@ export default function SchedulerPage() {
             <div className="max-w-6xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-8">
                     <div>
-                        <h1 className="text-4xl font-headline font-bold text-primary">Manual Scheduler</h1>
-                        <p className="text-muted-foreground mt-2">Your personalized study plan.</p>
+                        <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-2"><Sparkles className="w-8 h-8" /> AI Scheduler</h1>
+                        <p className="text-muted-foreground mt-2">Let AI create a balanced, personalized study plan for you.</p>
                     </div>
                     <div className="flex items-center gap-2">
                          {schedule && Object.keys(schedule).length > 0 && (
@@ -467,7 +401,7 @@ export default function SchedulerPage() {
                                 </Button>
                             </>
                         )}
-                        <ScheduleCreatorDialog courses={courses} onScheduleGenerated={handleScheduleGenerated} />
+                        <AIScheduleCreatorDialog courses={courses} onScheduleGenerated={handleScheduleGenerated} />
                     </div>
                 </div>
 
@@ -519,8 +453,8 @@ export default function SchedulerPage() {
                         <Card className="text-center py-24">
                             <CardHeader>
                                 <ListChecks className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <CardTitle className="mt-4">No Schedule Found</CardTitle>
-                                <CardDescription>Click "Create New Schedule" to generate your study plan.</CardDescription>
+                                <CardTitle className="mt-4">No AI Schedule Found</CardTitle>
+                                <CardDescription>Click "Create AI Schedule" to generate your smart study plan.</CardDescription>
                             </CardHeader>
                         </Card>
                     )}

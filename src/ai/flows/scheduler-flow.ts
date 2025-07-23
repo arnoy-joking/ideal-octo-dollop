@@ -11,7 +11,8 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { GenerateSchedulePlanInputSchema, CoursePlanSchema, type GenerateSchedulePlanInput, type CoursePlan } from '@/lib/types';
+import { GenerateSchedulePlanInputSchema, ScheduleSchema as CoursePlanSchema, type GenerateSchedulePlanInput, type Schedule as CoursePlan } from '@/lib/types';
+import { z } from 'zod';
 
 const schedulerPrompt = ai.definePrompt({
     name: 'schedulerPlannerPrompt',
@@ -19,23 +20,29 @@ const schedulerPrompt = ai.definePrompt({
     output: { schema: CoursePlanSchema },
     prompt: `You are an expert study planner. Your task is to create a high-level, balanced study plan based on the user's selected courses and date range.
 
-Your output MUST be a plan that specifies which courses to study on which days. You are ONLY deciding the subjects for each day, NOT how many lessons.
+Your output MUST be a plan that specifies which lessons to study on which days, including specific times.
 
 **User Preferences:**
 - Start Date: {{{startDate}}}
 - End Date: {{{endDate}}}
 - Relaxed Pace: {{isLazy}}
 
-**Available Courses:**
+**Available Courses & Their Lessons (in sequence):**
 {{#each courses}}
 - Course: "{{title}}" (ID: {{id}})
+  Lessons:
+  {{#each lessons}}
+  - {{title}} (ID: {{id}})
+  {{/each}}
 {{/each}}
 
 **Instructions:**
-1.  **Create Daily Plan:** For each day from the start date to the end date (inclusive), create a list of course IDs to study.
-2.  **Balance Subjects:** Distribute the courses evenly throughout the period. A user should not study the same subject every single day if others are available. Rotate subjects to keep it interesting.
-3.  **Adhere to Preferences:** If 'isLazy' is true, include some rest days where the array of course IDs is empty.
-4.  **Output Format:** The final output must be a valid JSON object where keys are dates in "YYYY-MM-DD" format and values are arrays of UNIQUE course ID strings for that day.
+1.  **Create Daily Plan:** For each day from the start date to the end date (inclusive), create a list of lessons to study.
+2.  **Strict Sequencing:** You MUST schedule lessons for each course in the exact order they are provided. Never schedule a lesson before its predecessor from the same course is scheduled.
+3.  **Balance Subjects:** Distribute the courses evenly throughout the period. A user should not study the same subject multiple times a day if other subjects are available and can be scheduled. Rotate subjects to keep it interesting. Avoid creating monotonous, repetitive daily patterns.
+4.  **Adhere to Preferences:** If 'isLazy' is true, include some rest days where the array of scheduled lessons is empty. Distribute these rest days realistically (e.g., one every 3-4 days). Don't just put them all at the end.
+5.  **Assign Times:** For each scheduled lesson, assign a reasonable time in 'hh:mm a' format (e.g., '09:00 AM', '02:30 PM'). Times within a single day should be chronological.
+6.  **Output Format:** The final output must be a valid JSON object where keys are dates in "YYYY-MM-DD" format and values are arrays of scheduled lesson objects for that day. Each lesson object must contain 'lessonId', 'courseId', 'title', and 'time'.
 `
 });
 
