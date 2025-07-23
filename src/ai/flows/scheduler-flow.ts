@@ -45,9 +45,7 @@ const schedulerPrompt = ai.definePrompt({
 
 5.  **NO REST DAYS:** Do NOT include any rest days. Every day in the range must have at least one lesson scheduled until all lessons are assigned.
 
-6.  Dont add more than 2 lessons from a course for a day. 
-
-7.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
+6.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
 `
 });
 
