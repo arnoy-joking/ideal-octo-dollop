@@ -11,6 +11,7 @@ import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import type { Course, ScheduledLesson, Schedule } from '@/lib/types';
+import { ScheduleSchema } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -26,7 +27,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
-import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2, Clipboard, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -38,6 +40,37 @@ const scheduleRequestSchema = z.object({
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
+
+const schedulerPromptTemplate = `You are an expert study planner. Your task is to create a varied and balanced study checklist for a user based on their selected courses and a strict date range.
+
+**User Preferences:**
+- Start Date: {{{startDate}}}
+- End Date: {{{endDate}}}
+
+**Available Courses & Their Lessons (in sequence):**
+{{#each courses}}
+- Course: "{{title}}" (ID: {{id}})
+  Lessons:
+  {{#each lessons}}
+  - {{title}} (ID: {{id}})
+  {{/each}}
+{{/each}}
+
+**CRITICAL INSTRUCTIONS:**
+
+1.  **STRICT DATE RANGE:** This is the most important rule. You MUST schedule all lessons strictly between the Start Date and the End Date. **DO NOT schedule ANY lessons after {{{endDate}}}.** If you have many lessons to schedule in a short period, you MUST increase the number of lessons per day to fit everything within the specified timeframe.
+
+2.  **SCHEDULE ALL LESSONS:** You MUST schedule every single lesson from all provided courses. Do not skip any lessons.
+
+3.  **MAINTAIN SEQUENCE:** For each course, you MUST schedule the lessons in the exact order they are provided. Never schedule a lesson before its predecessor from the same course is scheduled.
+
+4.  **MAXIMIZE DAILY VARIETY:** Distribute different subjects as evenly as possible throughout the week. A user should study a mix of subjects each day. Avoid monotonous patterns where the same subjects are studied every single day. Rotate the subjects to keep the schedule engaging.
+
+5.  **NO REST DAYS:** Do NOT include any rest days. Every day in the range must have at least one lesson scheduled until all lessons are assigned.
+
+6.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
+`;
+
 
 function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -105,6 +138,31 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
   }, [selectedCoursesForGeneration]);
+
+  const handleCopyPrompt = () => {
+    if (selectedCoursesForGeneration.length === 0) {
+      toast({ title: 'No Lessons Selected', description: 'Please select at least one lesson to generate a prompt.', variant: 'destructive' });
+      return;
+    }
+    
+    let prompt = schedulerPromptTemplate;
+    prompt = prompt.replace('{{{startDate}}}', format(dateRange.from, 'yyyy-MM-dd'));
+    prompt = prompt.replace(/{{{endDate}}}/g, format(dateRange.to, 'yyyy-MM-dd'));
+    
+    const coursesString = selectedCoursesForGeneration.map(course => {
+        const lessonsString = course.lessons.map(lesson => `  - ${lesson.title} (ID: ${lesson.id})`).join('\n');
+        return `- Course: "${course.title}" (ID: ${course.id})\n  Lessons:\n${lessonsString}`;
+    }).join('\n');
+
+    prompt = prompt.replace(/{{#each courses}}[\s\S]*?{{\/each}}/, coursesString);
+    
+    navigator.clipboard.writeText(prompt).then(() => {
+        toast({ title: 'Prompt Copied!', description: 'The prompt has been copied to your clipboard.' });
+    }, (err) => {
+        console.error('Could not copy text: ', err);
+        toast({ title: 'Error', description: 'Failed to copy prompt.', variant: 'destructive' });
+    });
+  };
 
   const onSubmit = async (data: ScheduleRequestData) => {
     if (selectedCoursesForGeneration.length === 0) {
@@ -259,11 +317,15 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             </div>
         </div>
 
-        <DialogFooter className="pt-4 border-t">
+        <DialogFooter className="pt-4 border-t gap-2">
           <div className="flex items-center text-sm text-muted-foreground mr-auto">
             <Info className="mr-2 h-4 w-4" />
             {totalSelectedLessons} lessons in {selectedCoursesForGeneration.length} courses
           </div>
+          <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+            <Clipboard className="mr-2 h-3 w-3" />
+            Copy Prompt
+          </Button>
           <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
           <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
             {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Wand2 className="mr-2" />}
@@ -273,6 +335,74 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
       </DialogContent>
     </Dialog>
   );
+}
+
+function ImportScheduleDialog({ onScheduleImported }: { onScheduleImported: (schedule: Schedule) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [jsonInput, setJsonInput] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+    const { toast } = useToast();
+
+    const handleImport = () => {
+        setIsImporting(true);
+        try {
+            const parsedJson = JSON.parse(jsonInput);
+            const validatedSchedule = ScheduleSchema.parse(parsedJson);
+
+            onScheduleImported(validatedSchedule);
+            toast({ title: 'Schedule Imported!', description: 'Your schedule has been successfully loaded.' });
+            setIsOpen(false);
+            setJsonInput('');
+        } catch (error) {
+            console.error("Import error:", error);
+            let errorMessage = 'An unknown error occurred.';
+            if (error instanceof z.ZodError) {
+                errorMessage = "The provided JSON does not match the required schedule format. " + error.errors.map(e => e.message).join(', ');
+            } else if (error instanceof SyntaxError) {
+                errorMessage = "Invalid JSON format. Please check for syntax errors.";
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            toast({ title: 'Import Failed', description: errorMessage, variant: 'destructive' });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <Upload className="mr-2" />
+                    Import Schedule
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Import Schedule from JSON</DialogTitle>
+                    <DialogDescription>
+                        Paste the JSON output from your external AI to import the schedule.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                    <Textarea
+                        value={jsonInput}
+                        onChange={(e) => setJsonInput(e.target.value)}
+                        placeholder='{ "schedule": [ ... ] }'
+                        rows={10}
+                        className="font-code text-xs"
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleImport} disabled={isImporting || !jsonInput.trim()}>
+                        {isImporting ? <Loader2 className="mr-2 animate-spin" /> : <Upload className="mr-2" />}
+                        Import
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
 
 export default function AISchedulerPage() {
@@ -322,7 +452,7 @@ export default function AISchedulerPage() {
         loadData();
     }, [currentUser, toast]);
 
-    const handleScheduleGenerated = async (newSchedule: Schedule) => {
+    const handleScheduleUpdate = async (newSchedule: Schedule) => {
         if (!currentUser) return;
         setSchedule(newSchedule);
         await saveScheduleAction(currentUser.id, newSchedule);
@@ -428,7 +558,7 @@ export default function AISchedulerPage() {
                         <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-2"><Sparkles className="w-8 h-8" /> AI Scheduler</h1>
                         <p className="text-muted-foreground mt-2">Let AI create a balanced, personalized study plan for you.</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                          {schedule && schedule.schedule && schedule.schedule.length > 0 && (
                             <>
                                 <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloading}>
@@ -441,7 +571,8 @@ export default function AISchedulerPage() {
                                 </Button>
                             </>
                         )}
-                        <AIScheduleCreatorDialog courses={courses} onScheduleGenerated={handleScheduleGenerated} />
+                        <ImportScheduleDialog onScheduleImported={handleScheduleUpdate} />
+                        <AIScheduleCreatorDialog courses={courses} onScheduleGenerated={handleScheduleUpdate} />
                     </div>
                 </div>
 
@@ -495,3 +626,5 @@ export default function AISchedulerPage() {
         </main>
     );
 }
+
+    
