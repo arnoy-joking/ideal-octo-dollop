@@ -64,14 +64,20 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             newSelected[courseId] = new Set();
         }
 
-        if (newSelected[courseId].has(lessonId)) {
-            newSelected[courseId].delete(lessonId);
-            if (newSelected[courseId].size === 0) {
-                delete newSelected[courseId];
-            }
+        const courseSet = new Set(newSelected[courseId]);
+
+        if (courseSet.has(lessonId)) {
+            courseSet.delete(lessonId);
         } else {
-            newSelected[courseId].add(lessonId);
+            courseSet.add(lessonId);
         }
+
+        if (courseSet.size === 0) {
+            delete newSelected[courseId];
+        } else {
+            newSelected[courseId] = courseSet;
+        }
+
         return newSelected;
     });
   };
@@ -166,9 +172,9 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
                                     <AccordionTrigger className="px-2 hover:no-underline">
                                         <div className="flex items-center space-x-3 flex-1">
                                             <Checkbox
-                                                id={`course-${course.id}`}
+                                                id={`course-select-all-${course.id}`}
                                                 checked={isAllSelected}
-                                                aria-label={isIndeterminate ? "Some lessons selected" : isAllSelected ? "All lessons selected" : "No lessons selected"}
+                                                aria-checked={isIndeterminate ? 'mixed' : isAllSelected}
                                                 onCheckedChange={(checked) => handleSelectAllInCourse(course, !!checked)}
                                                 onClick={(e) => e.stopPropagation()}
                                             />
