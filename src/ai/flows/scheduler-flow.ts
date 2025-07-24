@@ -33,9 +33,24 @@ const schedulerPrompt = ai.definePrompt({
   {{/each}}
 {{/each}}
 
-Instructions:
+{{#if customInstructions}}
+**Additional User Instructions:**
+{{{customInstructions}}}
+{{/if}}
 
-Keep the sequences of the lessons. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. And try to divide the lessons per day equal . Dont skip any lesson. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an ai. dont forget it. please do it smartly.
+CRITICAL Instructions:
+
+1.  **STAY WITHIN THE DATE RANGE**: This is the most important rule. The schedule MUST NOT contain any dates after the specified 'End Date'. All lessons must be scheduled on or before this date. If you need to fit more lessons on a single day to meet the deadline, you must do so.
+
+2.  **Schedule ALL Lessons**: You MUST schedule ALL lessons for ALL courses provided in the input. Do not skip any lessons for any reason.
+
+3.  **Strict Sequencing**: You MUST maintain the original order of lessons within each course. Lesson 2 cannot come before Lesson 1.
+
+4.  **Maximize Daily Variety**: Distribute the courses as evenly as possible throughout the week. A user should study different subjects each day. Actively rotate the subjects to keep the schedule interesting and engaging. Avoid creating monotonous, repetitive daily patterns where the user studies the same subjects in the same order every day.
+
+5.  **Balance Daily Workload**: Try to distribute the lessons as evenly as possible across the available days to avoid overwhelming the user on any single day.
+
+6.  **No Rest Days**: Every day in the date range should have at least one lesson if there are lessons remaining to be scheduled.
 
 OUTPUT FORMAT: The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`
 });

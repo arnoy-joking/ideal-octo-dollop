@@ -28,15 +28,17 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2, Clipboard, Upload } from 'lucide-react';
+import { Calendar as CalendarIcon, Sparkles, Loader2, CheckCircle, Download, ListChecks, Info, Trash2, Wand2, Clipboard, Upload, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const scheduleRequestSchema = z.object({
   dateRange: z.object({
     from: z.date({ required_error: "A start date is required." }),
     to: z.date({ required_error: "An end date is required." }),
   }),
+  customInstructions: z.string().optional(),
 });
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
@@ -67,12 +69,14 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   const [isOpen, setIsOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Record<string, Set<string>>>({});
+  const [generatedSchedule, setGeneratedSchedule] = useState<Schedule | null>(null);
   const { toast } = useToast();
   
   const form = useForm<ScheduleRequestData>({
     resolver: zodResolver(scheduleRequestSchema),
     defaultValues: {
       dateRange: { from: new Date(), to: new Date(new Date().setDate(new Date().getDate() + 13)) },
+      customInstructions: '',
     },
   });
   
@@ -115,7 +119,6 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
       });
   };
 
-
   const selectedCoursesForGeneration = useMemo(() => {
     return courses
       .map(course => ({
@@ -124,7 +127,6 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
       }))
       .filter(course => course.lessons.length > 0);
   }, [selectedLessons, courses]);
-
 
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
@@ -162,6 +164,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     }
     
     setIsGenerating(true);
+    setGeneratedSchedule(null);
 
     try {
         const scheduleInput: z.infer<typeof GenerateSchedulePlanInputSchema> = {
@@ -172,16 +175,14 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             })),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
+            customInstructions: data.customInstructions,
         };
 
         const result = await generateStudySchedulePlan(scheduleInput);
 
         if (result && result.schedule && result.schedule.length > 0) {
-            onScheduleGenerated(result);
-            toast({ title: 'AI Schedule Generated!', description: 'Your new smart study plan is ready.' });
-            setIsOpen(false);
-            setSelectedLessons({});
-            form.reset();
+            setGeneratedSchedule(result);
+            toast({ title: 'AI Schedule Generated!', description: 'Your new smart study plan is ready to be reviewed.' });
         } else {
             throw new Error('The AI failed to produce a schedule.');
         }
@@ -193,8 +194,20 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     }
   };
 
+  const handleAcceptSchedule = () => {
+      if (generatedSchedule) {
+          onScheduleGenerated(generatedSchedule);
+          setIsOpen(false);
+      }
+  };
+
+  const handleCloseDialog = () => {
+    setIsOpen(false);
+    setGeneratedSchedule(null);
+  };
+  
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleCloseDialog}>
       <DialogTrigger asChild>
         <Button>
           <Wand2 className="mr-2" />
@@ -204,130 +217,177 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
       <DialogContent className="max-w-4xl max-h-[90vh] grid grid-rows-[auto,1fr,auto]">
         <DialogHeader>
           <DialogTitle>Create a New AI-Powered Schedule</DialogTitle>
-          <DialogDescription>Select courses and lessons, set your preferences, and let AI generate a smart study plan.</DialogDescription>
+          <DialogDescription>Select lessons, set preferences, and let AI generate a smart study plan.</DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
-            <div className="space-y-4">
-                <h3 className="font-semibold text-lg">1. Select Lessons</h3>
-                <Card>
-                    <CardContent className="p-2 max-h-96 overflow-y-auto">
-                        <Accordion type="multiple" className="w-full">
-                            {courses.map(course => {
-                                const courseSelectedLessons = selectedLessons[course.id] || new Set();
-                                const isAllSelected = course.lessons.length > 0 && courseSelectedLessons.size === course.lessons.length;
-                                const isIndeterminate = courseSelectedLessons.size > 0 && !isAllSelected;
-
-                                return (
-                                <AccordionItem value={course.id} key={course.id}>
-                                    <AccordionTrigger className="px-2 hover:no-underline">
-                                        <div className="flex items-center space-x-3 flex-1">
-                                            <Checkbox
-                                                id={`course-select-all-${course.id}`}
-                                                checked={isAllSelected}
-                                                aria-checked={isIndeterminate ? 'mixed' : isAllSelected}
-                                                onCheckedChange={(checked) => handleSelectAllInCourse(course, !!checked)}
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                            <label htmlFor={`course-select-trigger-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer text-left">
-                                                {course.title}
-                                                <p className="text-xs text-muted-foreground">{courseSelectedLessons.size} / {course.lessons.length} lessons selected</p>
-                                            </label>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8 pt-2">
-                                            {course.lessons.map((lesson, index) => (
-                                                <div key={lesson.id} className="flex items-center space-x-3">
-                                                    <Checkbox
-                                                        id={`${course.id}-${lesson.id}`}
-                                                        checked={courseSelectedLessons.has(lesson.id)}
-                                                        onCheckedChange={() => handleLessonToggle(course.id, lesson.id)}
-                                                    />
-                                                    <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none flex-1 cursor-pointer">
-                                                        <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
-                                                    </label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            )})}
-                        </Accordion>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="space-y-4">
-                <h3 className="font-semibold text-lg">2. Set Preferences</h3>
-                <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
-                            <CalendarIcon className="h-6 w-6 text-primary" />
-                             <div>
-                                <CardTitle className="text-base">Date Range</CardTitle>
-                                <CardDescription className="text-xs">Pick a start and end date for your plan.</CardDescription>
+        {generatedSchedule ? (
+            <div className="py-4 overflow-y-auto">
+                <h3 className="text-lg font-semibold mb-4 text-center">Generated Schedule Preview</h3>
+                <ScrollArea className="h-[60vh] border rounded-lg p-4">
+                    <div className="space-y-4">
+                        {generatedSchedule.schedule.map(day => (
+                            <div key={day.date}>
+                                <h4 className="font-bold text-primary">{format(parseISO(day.date), 'EEEE, MMMM d')}</h4>
+                                <ul className="list-disc pl-5 mt-1 space-y-1 text-sm text-muted-foreground">
+                                    {day.lessons.map(lesson => (
+                                        <li key={lesson.lessonId}>{lesson.title}</li>
+                                    ))}
+                                </ul>
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !dateRange?.from && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dateRange?.from ? (
-                                    dateRange.to ? (
-                                        <>
-                                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                                        {format(dateRange.to, "LLL dd, y")}
-                                        </>
-                                    ) : (
-                                        format(dateRange.from, "LLL dd, y")
-                                    )
-                                    ) : (
-                                    <span>Pick a date range</span>
-                                    )}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={dateRange ?? { from: undefined, to: undefined }}
-                                        onSelect={(range) => form.setValue('dateRange', range as DateRange)}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                            {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
-                            {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
+        ) : (
+             <div className="grid md:grid-cols-2 gap-8 py-4 overflow-y-auto pr-2">
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">1. Select Lessons</h3>
+                    <Card>
+                        <CardContent className="p-2 max-h-[60vh] overflow-y-auto">
+                            <Accordion type="multiple" className="w-full">
+                                {courses.map(course => {
+                                    const courseSelectedLessons = selectedLessons[course.id] || new Set();
+                                    const isAllSelected = course.lessons.length > 0 && courseSelectedLessons.size === course.lessons.length;
+                                    const isIndeterminate = courseSelectedLessons.size > 0 && !isAllSelected;
+
+                                    return (
+                                    <AccordionItem value={course.id} key={course.id}>
+                                        <AccordionTrigger className="px-2 hover:no-underline">
+                                            <div className="flex items-center space-x-3 flex-1">
+                                                <Checkbox
+                                                    id={`course-select-all-${course.id}`}
+                                                    checked={isAllSelected}
+                                                    aria-checked={isIndeterminate ? 'mixed' : isAllSelected}
+                                                    onCheckedChange={(checked) => handleSelectAllInCourse(course, !!checked)}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <label htmlFor={`course-select-trigger-${course.id}`} className="font-medium leading-none flex-1 cursor-pointer text-left">
+                                                    {course.title}
+                                                    <p className="text-xs text-muted-foreground">{courseSelectedLessons.size} / {course.lessons.length} lessons selected</p>
+                                                </label>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent>
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-4 pl-8 pt-2">
+                                                {course.lessons.map((lesson, index) => (
+                                                    <div key={lesson.id} className="flex items-center space-x-3">
+                                                        <Checkbox
+                                                            id={`${course.id}-${lesson.id}`}
+                                                            checked={courseSelectedLessons.has(lesson.id)}
+                                                            onCheckedChange={() => handleLessonToggle(course.id, lesson.id)}
+                                                        />
+                                                        <label htmlFor={`${course.id}-${lesson.id}`} className="text-sm font-medium leading-none flex-1 cursor-pointer">
+                                                            <span className="text-muted-foreground w-8 inline-block mr-2">[{index + 1}]</span>{lesson.title}
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                )})}
+                            </Accordion>
                         </CardContent>
                     </Card>
-                </form>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">2. Set Preferences</h3>
+                    <form id="schedule-creator-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center gap-4 space-y-0 p-4">
+                                <CalendarIcon className="h-6 w-6 text-primary" />
+                                <div>
+                                    <CardTitle className="text-base">Date Range</CardTitle>
+                                    <CardDescription className="text-xs">Pick a start and end date for your plan.</CardDescription>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4 pt-0">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !dateRange?.from && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dateRange?.from ? (
+                                        dateRange.to ? (
+                                            <>
+                                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                                            {format(dateRange.to, "LLL dd, y")}
+                                            </>
+                                        ) : (
+                                            format(dateRange.from, "LLL dd, y")
+                                        )
+                                        ) : (
+                                        <span>Pick a date range</span>
+                                        )}
+                                    </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={dateRange?.from}
+                                            selected={dateRange ?? { from: undefined, to: undefined }}
+                                            onSelect={(range) => form.setValue('dateRange', range as DateRange)}
+                                            numberOfMonths={2}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                {form.formState.errors.dateRange?.from && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.from.message}</p>}
+                                {form.formState.errors.dateRange?.to && <p className="text-sm text-destructive mt-1">{form.formState.errors.dateRange.to.message}</p>}
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base">Custom Instructions</CardTitle>
+                                <CardDescription className="text-xs">Provide any specific instructions for the AI.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                 <Textarea 
+                                    {...form.register('customInstructions')}
+                                    placeholder="e.g., 'Make Fridays lighter with only 2 lessons.' or 'Focus on Physics and Math in the first week.'"
+                                    rows={4}
+                                 />
+                            </CardContent>
+                        </Card>
+                    </form>
+                </div>
             </div>
-        </div>
+        )}
 
         <DialogFooter className="pt-4 border-t gap-2">
-          <div className="flex items-center text-sm text-muted-foreground mr-auto">
-            <Info className="mr-2 h-4 w-4" />
-            {totalSelectedLessons} lessons in {selectedCoursesForGeneration.length} courses
-          </div>
-          <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
-            <Clipboard className="mr-2 h-3 w-3" />
-            Copy Prompt
-          </Button>
-          <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-          <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Wand2 className="mr-2" />}
-            Generate with AI
-          </Button>
+            {generatedSchedule ? (
+                <>
+                    <Button variant="ghost" onClick={() => setGeneratedSchedule(null)}>Back</Button>
+                    <div className="flex-1" />
+                    <Button variant="outline" onClick={() => form.handleSubmit(onSubmit)()} disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <RefreshCw className="mr-2" />}
+                        Regenerate
+                    </Button>
+                    <Button onClick={handleAcceptSchedule}>Accept Schedule</Button>
+                </>
+            ) : (
+                <>
+                    <div className="flex items-center text-sm text-muted-foreground mr-auto">
+                        <Info className="mr-2 h-4 w-4" />
+                        {totalSelectedLessons} lessons in {selectedCoursesForGeneration.length} courses
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleCopyPrompt}>
+                        <Clipboard className="mr-2 h-3 w-3" />
+                        Copy Prompt
+                    </Button>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button type="submit" form="schedule-creator-form" disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Wand2 className="mr-2" />}
+                        Generate with AI
+                    </Button>
+                </>
+            )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -629,5 +689,3 @@ export default function AISchedulerPage() {
         </main>
     );
 }
-
-    
