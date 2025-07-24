@@ -64,18 +64,7 @@ const schedulerPrompt = ai.definePrompt({
     - Every day from {{{startDate}}} to {{{endDate}}} must have at least one lesson.
     - Keep going until all lessons are assigned.
 
-7.  **OUTPUT FORMAT – STRICT JSON:**
-    - Return ONLY a valid JSON object.
-    - It must have one key: `"schedule"`
-    - `"schedule"` is an array of daily objects.
-    - Each daily object contains:
-        - `"date"`: string in "YYYY-MM-DD" format
-        - `"lessons"`: array of lesson objects
-    - Each lesson object contains:
-        - `"lessonId"`: string (use the ID provided)
-        - `"courseId"`: string (use the course ID)
-        - `"title"`: string (use the exact lesson title)
-    - Do NOT include: time, duration, notes, breaks, comments, or extra fields.
+7.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
 
 **GOAL:**  
 Create a schedule that feels **smart, engaging, and sustainable** — not robotic, not crammed, and never boring. The user should feel motivated every day, not burned out on the last day.`
