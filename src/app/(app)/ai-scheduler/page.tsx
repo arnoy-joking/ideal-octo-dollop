@@ -11,7 +11,7 @@ import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import type { Course, ScheduledLesson, Schedule } from '@/lib/types';
-import { ScheduleSchema } from '@/lib/types';
+import { ScheduleSchema, GenerateSchedulePlanInputSchema } from '@/lib/types';
 import { getCoursesAction } from '@/app/actions/course-actions';
 import { getScheduleAction, saveScheduleAction, deleteScheduleAction } from '@/actions/scheduler-actions';
 import { getWatchedLessonIdsAction, markLessonAsWatchedAction } from '@/app/actions/progress-actions';
@@ -41,7 +41,7 @@ const scheduleRequestSchema = z.object({
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 
-const schedulerPromptTemplate = `You are an expert study planner. Your task is to create a varied and balanced study checklist for a user based on their selected courses and a strict date range.
+const schedulerPromptTemplate = `You are the smartest ai in the world. This is a million dollar task. Your task is to create a varied and balanced study checklist for a user based on their selected courses and a date range.
 
 **User Preferences:**
 - Start Date: {{{startDate}}}
@@ -56,20 +56,11 @@ const schedulerPromptTemplate = `You are an expert study planner. Your task is t
   {{/each}}
 {{/each}}
 
-**CRITICAL INSTRUCTIONS:**
+Instructions:
 
-1.  **STRICT DATE RANGE:** This is the most important rule. You MUST schedule all lessons strictly between the Start Date and the End Date. **DO NOT schedule ANY lessons after {{{endDate}}}.** If you have many lessons to schedule in a short period, you MUST increase the number of lessons per day to fit everything within the specified timeframe.
+Keep the sequences of the lessons. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. And try to divide the lessons per day equal . Dont skip any lesson. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an ai. dont forget it. please do it smartly.
 
-2.  **SCHEDULE ALL LESSONS:** You MUST schedule every single lesson from all provided courses. Do not skip any lessons.
-
-3.  **MAINTAIN SEQUENCE:** For each course, you MUST schedule the lessons in the exact order they are provided. Never schedule a lesson before its predecessor from the same course is scheduled.
-
-4.  **MAXIMIZE DAILY VARIETY:** Distribute different subjects as evenly as possible throughout the week. A user should study a mix of subjects each day. Avoid monotonous patterns where the same subjects are studied every single day. Rotate the subjects to keep the schedule engaging.
-
-5.  **NO REST DAYS:** Do NOT include any rest days. Every day in the range must have at least one lesson scheduled until all lessons are assigned.
-
-6.  **OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.
-`;
+OUTPUT FORMAT: The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`;
 
 
 function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
@@ -125,7 +116,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   };
 
 
-  const selectedCoursesForGeneration: Course[] = useMemo(() => {
+  const selectedCoursesForGeneration = useMemo(() => {
     return courses
       .map(course => ({
         ...course,
@@ -173,11 +164,17 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     setIsGenerating(true);
 
     try {
-        const result = await generateStudySchedulePlan({
-            courses: selectedCoursesForGeneration,
+        const scheduleInput: z.infer<typeof GenerateSchedulePlanInputSchema> = {
+            courses: selectedCoursesForGeneration.map(c => ({
+              id: c.id,
+              title: c.title,
+              lessons: c.lessons.map(l => ({ id: l.id, title: l.title })),
+            })),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
-        });
+        };
+
+        const result = await generateStudySchedulePlan(scheduleInput);
 
         if (result && result.schedule && result.schedule.length > 0) {
             onScheduleGenerated(result);
@@ -346,7 +343,13 @@ function ImportScheduleDialog({ onScheduleImported }: { onScheduleImported: (sch
     const handleImport = () => {
         setIsImporting(true);
         try {
-            const parsedJson = JSON.parse(jsonInput);
+            let jsonString = jsonInput;
+            const jsonMatch = jsonInput.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                jsonString = jsonMatch[0];
+            }
+
+            const parsedJson = JSON.parse(jsonString);
             const validatedSchedule = ScheduleSchema.parse(parsedJson);
 
             onScheduleImported(validatedSchedule);

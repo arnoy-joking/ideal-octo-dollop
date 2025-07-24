@@ -84,16 +84,18 @@ export const ScheduleSchema = z.object({
 export type Schedule = z.infer<typeof ScheduleSchema>;
 
 
-export interface GenerateScheduleInput {
-  courses: Course[];
-  startDate: string;
-  endDate: string;
-}
-
-export type GenerateScheduleOutput = Record<string, Omit<ScheduledLesson, 'time'>[]>;
+const LessonInputSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+});
+const CourseInputSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  lessons: z.array(LessonInputSchema),
+});
 
 export const GenerateSchedulePlanInputSchema = z.object({
-  courses: z.array(z.custom<Course>()).describe("A list of courses the user wants to schedule, including their lessons."),
+  courses: z.array(CourseInputSchema).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
 });
