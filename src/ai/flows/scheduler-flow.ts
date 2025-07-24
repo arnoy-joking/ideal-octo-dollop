@@ -36,7 +36,7 @@ const schedulerPrompt = ai.definePrompt({
 Instructions:
 
 Keep the sequences of the lessons. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. And try to divide the lessons per day equal . Dont skip any lesson. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an fucking ai. dont forget it. please do it smartly. please. please.
-
+As I have specified format below, dont give any other text or word. just give me the json. 
 OUTPUT FORMAT: The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`
 });
 
