@@ -43,9 +43,7 @@ const scheduleRequestSchema = z.object({
 
 type ScheduleRequestData = z.infer<typeof scheduleRequestSchema>;
 
-const schedulerPromptTemplate = `You are the smartest ai in the world. This is a million dollar task. Your task is to create a varied and balanced study checklist for a user based on their selected courses and a date range.
-
-**User Preferences:**
+const schedulerPromptTemplate = `**User Preferences:**
 - Start Date: {{{startDate}}}
 - End Date: {{{endDate}}}
 - Daily Lesson Distribution: {{{dailyLessonDistribution}}}
@@ -64,23 +62,65 @@ const schedulerPromptTemplate = `You are the smartest ai in the world. This is a
 {{{customInstructions}}}
 {{/if}}
 
-CRITICAL Instructions:
+Instructions:
 
-1.  **ADHERE TO DAILY DISTRIBUTION**: You MUST follow the 'Daily Lesson Distribution' plan exactly. Do not deviate from the number of lessons specified for each day.
+Keep the sequences of the lessons. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. Divide lessons for days as-even-as-possible,  . Dont skip any lessons, I repeat, dont skip. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an fucking ai. dont forget it. please do it smartly. please. please. and please.
 
-2.  **STAY WITHIN THE DATE RANGE**: The schedule MUST NOT contain any dates after the specified 'End Date'.
+Maximize variety for days. Dont do like {
 
-3.  **Schedule ALL Lessons**: You MUST schedule ALL lessons for ALL courses provided in the input. Do not skip any lessons.
+      "date": "2025-07-29",
 
-4.  **Strict Sequencing**: You MUST maintain the original order of lessons within each course. Lesson 2 cannot come before Lesson 1.
+      "lessons": [
 
-5.  **Maximize Daily Variety**: A user should study different subjects each day. Actively rotate the subjects to keep the schedule interesting and engaging. Avoid creating monotonous daily patterns where the user studies the same subjects in the same order every day.
+        {
 
-6.  **No More Than 2 Lessons from the Same Course Per Day**: This is a strict rule. A user cannot be assigned more than two lessons from the same course on any single day.
+          "lessonId": "c2d2b6c8-e06a-46a2-8480-b61a5cebcc56",
 
-7.  **No Empty Days**: Every day in the date range should have lessons as specified by the distribution plan.
+          "courseId": "SsVlqjdi5ghzi4jK13o3",
 
-OUTPUT FORMAT: The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`;
+          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৪"
+
+        },
+
+        {
+
+          "lessonId": "9e17d590-094d-48ce-806c-3adf2657b089",
+
+          "courseId": "SsVlqjdi5ghzi4jK13o3",
+
+          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৫"
+
+        },
+
+        {
+
+          "lessonId": "f00e2109-34c6-47e0-ab68-3cc5c557efe3",
+
+          "courseId": "SsVlqjdi5ghzi4jK13o3",
+
+          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৬"
+
+        },
+
+        {
+
+          "lessonId": "7dcdfece-ee3f-4a1d-bb45-b9a71a7cd102",
+
+          "courseId": "SsVlqjdi5ghzi4jK13o3",
+
+          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৭"
+
+        }
+
+      ]
+
+three or four lessons of a same course in a day makes it super boring.
+
+If needed add break day for the same lessons of a course for variety.
+
+Handle smartly. 
+
+**OUTPUT FORMAT:** The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`;
 
 // Helper function to distribute lessons as evenly as possible
 function distributeLessons(totalLessons: number, totalDays: number): number[] {
