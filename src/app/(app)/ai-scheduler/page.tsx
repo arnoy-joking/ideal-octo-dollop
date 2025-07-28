@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, parse, isToday, parseISO } from 'date-fns';
+import { format, parse, isToday, parseISO, differenceInCalendarDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import jspdf from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -48,6 +48,7 @@ const schedulerPromptTemplate = `You are the smartest ai in the world. This is a
 **User Preferences:**
 - Start Date: {{{startDate}}}
 - End Date: {{{endDate}}}
+- Daily Lesson Distribution: {{{dailyLessonDistribution}}}
 
 **Available Courses & Their Lessons (in sequence):**
 {{#each courses}}
@@ -65,19 +66,33 @@ const schedulerPromptTemplate = `You are the smartest ai in the world. This is a
 
 CRITICAL Instructions:
 
-1.  **STAY WITHIN THE DATE RANGE**: This is the most important rule. The schedule MUST NOT contain any dates after the specified 'End Date'. All lessons must be scheduled on or before this date. If you need to fit more lessons on a single day to meet the deadline, you must do so.
+1.  **ADHERE TO DAILY DISTRIBUTION**: You MUST follow the 'Daily Lesson Distribution' plan exactly. Do not deviate from the number of lessons specified for each day.
 
-2.  **Schedule ALL Lessons**: You MUST schedule ALL lessons for ALL courses provided in the input. Do not skip any lessons for any reason.
+2.  **STAY WITHIN THE DATE RANGE**: The schedule MUST NOT contain any dates after the specified 'End Date'.
 
-3.  **Strict Sequencing**: You MUST maintain the original order of lessons within each course. Lesson 2 cannot come before Lesson 1.
+3.  **Schedule ALL Lessons**: You MUST schedule ALL lessons for ALL courses provided in the input. Do not skip any lessons.
 
-4.  **Maximize Daily Variety**: Distribute the courses as evenly as possible throughout the week. A user should study different subjects each day. Actively rotate the subjects to keep the schedule interesting and engaging. Avoid creating monotonous, repetitive daily patterns where the user studies the same subjects in the same order every day.
+4.  **Strict Sequencing**: You MUST maintain the original order of lessons within each course. Lesson 2 cannot come before Lesson 1.
 
-5.  **Balance Daily Workload**: Try to distribute the lessons as evenly as possible across the available days to avoid overwhelming the user on any single day.
+5.  **Maximize Daily Variety**: A user should study different subjects each day. Actively rotate the subjects to keep the schedule interesting and engaging. Avoid creating monotonous daily patterns where the user studies the same subjects in the same order every day.
 
-6.  **No Rest Days**: Every day in the date range should have at least one lesson if there are lessons remaining to be scheduled.
+6.  **No More Than 2 Lessons from the Same Course Per Day**: This is a strict rule. A user cannot be assigned more than two lessons from the same course on any single day.
+
+7.  **No Empty Days**: Every day in the date range should have lessons as specified by the distribution plan.
 
 OUTPUT FORMAT: The final output must be a valid JSON object. It should have a single key "schedule" which is an array of daily plan objects. Each daily plan object must contain the 'date' in "YYYY-MM-DD" format and a 'lessons' array. Each lesson object in the array must contain 'lessonId', 'courseId', and 'title'. Do NOT include a 'time' field.`;
+
+// Helper function to distribute lessons as evenly as possible
+function distributeLessons(totalLessons: number, totalDays: number): number[] {
+    if (totalDays <= 0) return [];
+    const baseCount = Math.floor(totalLessons / totalDays);
+    let remainder = totalLessons % totalDays;
+    const distribution = new Array(totalDays).fill(baseCount);
+    for (let i = 0; i < remainder; i++) {
+        distribution[i]++;
+    }
+    return distribution;
+}
 
 
 function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Course[], onScheduleGenerated: (schedule: Schedule) => void }) {
@@ -146,6 +161,16 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   const totalSelectedLessons = useMemo(() => {
     return selectedCoursesForGeneration.reduce((acc, course) => acc + course.lessons.length, 0);
   }, [selectedCoursesForGeneration]);
+  
+  const getDailyLessonDistribution = (): { distribution: number[], text: string } => {
+    if (!dateRange?.from || !dateRange?.to || totalSelectedLessons === 0) {
+      return { distribution: [], text: 'N/A' };
+    }
+    const days = differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
+    const distribution = distributeLessons(totalSelectedLessons, days);
+    const text = distribution.map((count, i) => `Day ${i + 1}: ${count} lessons`).join(', ');
+    return { distribution, text };
+  };
 
   const handleCopyPrompt = () => {
     if (selectedCoursesForGeneration.length === 0) {
@@ -156,6 +181,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     let prompt = schedulerPromptTemplate;
     prompt = prompt.replace('{{{startDate}}}', format(dateRange.from, 'yyyy-MM-dd'));
     prompt = prompt.replace(/{{{endDate}}}/g, format(dateRange.to, 'yyyy-MM-dd'));
+    prompt = prompt.replace('{{{dailyLessonDistribution}}}', getDailyLessonDistribution().text);
     
     const coursesString = selectedCoursesForGeneration.map(course => {
         const lessonsString = course.lessons.map(lesson => `  - ${lesson.title} (ID: ${lesson.id})`).join('\n');
@@ -163,7 +189,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     }).join('\n');
 
     prompt = prompt.replace(/{{#each courses}}[\s\S]*?{{\/each}}/, coursesString);
-    prompt = prompt.replace('{{{customInstructions}}}', form.getValues('customInstructions') || '');
+    prompt = prompt.replace('{{{customInstructions}}}', form.getValues('customInstructions') || 'None');
     
     navigator.clipboard.writeText(prompt).then(() => {
         toast({ title: 'Prompt Copied!', description: 'The prompt has been copied to your clipboard.' });
@@ -183,6 +209,8 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
     setGeneratedSchedule(null);
 
     try {
+        const { text: dailyLessonDistribution } = getDailyLessonDistribution();
+
         const scheduleInput: z.infer<typeof GenerateSchedulePlanInputSchema> = {
             courses: selectedCoursesForGeneration.map(c => ({
               id: c.id,
@@ -191,6 +219,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
             })),
             startDate: format(data.dateRange.from, 'yyyy-MM-dd'),
             endDate: format(data.dateRange.to, 'yyyy-MM-dd'),
+            dailyLessonDistribution,
             customInstructions: data.customInstructions,
         };
 
@@ -220,6 +249,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
+      // Reset the dialog state when closing
       setGeneratedSchedule(null);
     }
   }
@@ -351,7 +381,7 @@ function AIScheduleCreatorDialog({ courses, onScheduleGenerated }: { courses: Co
                                             mode="range"
                                             defaultMonth={dateRange?.from}
                                             selected={dateRange ?? { from: undefined, to: undefined }}
-                                            onSelect={(range) => form.setValue('dateRange', range as DateRange)}
+                                            onSelect={(range) => form.setValue('dateRange', range as DateRange, { shouldValidate: true })}
                                             numberOfMonths={2}
                                         />
                                     </PopoverContent>

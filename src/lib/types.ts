@@ -98,6 +98,7 @@ export const GenerateSchedulePlanInputSchema = z.object({
   courses: z.array(CourseInputSchema).describe("A list of courses the user wants to schedule, including their lessons."),
   startDate: z.string().describe("The start date for the schedule in YYYY-MM-DD format."),
   endDate: z.string().describe("The end date for the schedule in YYYY-MM-DD format."),
+  dailyLessonDistribution: z.string().describe("A string detailing how many lessons to schedule per day, e.g., 'Day 1: 4 lessons, Day 2: 5 lessons...'"),
   customInstructions: z.string().optional().describe("Optional user-provided instructions to guide the AI."),
 });
 export type GenerateSchedulePlanInput = z.infer<typeof GenerateSchedulePlanInputSchema>;
