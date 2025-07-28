@@ -64,7 +64,7 @@ const schedulerPromptTemplate = `**User Preferences:**
 
 Instructions:
 
-Keep the sequences of the lessons. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. Divide lessons for days as-even-as-possible,  . Dont skip any lessons, I repeat, dont skip. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an fucking ai. dont forget it. please do it smartly. please. please. and please.
+Keep the sequences of the lessons.Dont repeat a same lesson for two different days. Make this schedule smart as possible, dont make it boring and dull. Dont make any day overwhelmed. Divide lessons for days as-even-as-possible,  . Dont skip any lessons, I repeat, dont skip. The user cant study more than 2 lessons of same chapter in a day. Dont do any mistakes. the user is very lazy and he cant study if you do any mistake. I will destroy you if you do any mistake. you are an fucking ai. dont forget it. please do it smartly. please. please. and please.
 
 Maximize variety for days. Dont do like {
 
@@ -78,7 +78,7 @@ Maximize variety for days. Dont do like {
 
           "courseId": "SsVlqjdi5ghzi4jK13o3",
 
-          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৪"
+          "title": "Example chapter part 3"
 
         },
 
@@ -88,17 +88,17 @@ Maximize variety for days. Dont do like {
 
           "courseId": "SsVlqjdi5ghzi4jK13o3",
 
-          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৫"
+          "title": "Example chapter part 4"
 
         },
 
         {
 
-          "lessonId": "f00e2109-34c6-47e0-ab68-3cc5c557efe3",
+          "lessonId": "f00e2109-34c6-47e0-ab68-sff3cc5c557efe3",
 
           "courseId": "SsVlqjdi5ghzi4jK13o3",
 
-          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৬"
+          "title": "Example chapter part 5"
 
         },
 
@@ -106,9 +106,9 @@ Maximize variety for days. Dont do like {
 
           "lessonId": "7dcdfece-ee3f-4a1d-bb45-b9a71a7cd102",
 
-          "courseId": "SsVlqjdi5ghzi4jK13o3",
+          "courseId": "SsVlqjdi5ghzi4jKjieal",
 
-          "title": "সমন্বয় ও নিয়ন্ত্রণ - পর্ব ০৭"
+          "title": "Example chapter part 6"
 
         }
 

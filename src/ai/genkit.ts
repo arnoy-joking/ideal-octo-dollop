@@ -7,5 +7,5 @@ export const ai = genkit({
       apiKey: 'AIzaSyApUm-BZdLiYhNoy1lfqZ0xwCB2Vw-kbts',
     }),
   ],
-  model: 'googleai/gemini-2.5-flash-lite',
+  model: 'googleai/gemini-2.0-flash-lite',
 });
