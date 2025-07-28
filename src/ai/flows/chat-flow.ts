@@ -22,7 +22,7 @@ export async function continueChat(history: ChatMessage[], newMessage: string): 
   const validatedHistory = ChatHistorySchema.parse(history);
 
   const response = await ai.generate({
-    model: 'googleai/gemini-2.5-flash',
+    model: 'googleai/gemini-2.5-flash-lite',
     prompt: newMessage,
     history: validatedHistory.map(msg => ({
       role: msg.role,
