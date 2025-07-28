@@ -7,7 +7,6 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {generate} from 'genkit';
 import {z} from 'zod';
 
 const ChatMessageSchema = z.object({
@@ -22,7 +21,7 @@ const ChatHistorySchema = z.array(ChatMessageSchema);
 export async function continueChat(history: ChatMessage[], newMessage: string): Promise<string> {
   const validatedHistory = ChatHistorySchema.parse(history);
 
-  const response = await generate({
+  const response = await ai.generate({
     model: 'googleai/gemini-2.0-flash',
     prompt: newMessage,
     history: validatedHistory.map(msg => ({
