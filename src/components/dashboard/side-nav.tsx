@@ -15,7 +15,7 @@ import {
   SidebarMenuSkeleton,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, BookCopy, Target, BookOpen, ChevronRight, Sparkles, Bot } from "lucide-react";
+import { Compass, LayoutDashboard, Settings, LifeBuoy, ClipboardList, Lock, UserPlus, FileText, CalendarDays, MessageSquare, BookCopy, Target, BookOpen, ChevronRight, Sparkles, Bot, BookCheck } from "lucide-react";
 import { AddUserDialog } from "./add-user-dialog";
 import { useUser } from "@/context/user-context";
 import { getUsersAction } from "@/app/actions/user-actions";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/daily-class", label: "Daily Class", icon: BookCheck },
   { href: "/syllabus", label: "Syllabus", icon: BookCopy },
   { href: "/monthly-goal", label: "Monthly Goal", icon: Target },
   { href: "/ai-scheduler", label: "AI Scheduler", icon: Sparkles },
@@ -127,7 +128,7 @@ export function SideNav() {
             <SidebarMenuItem key={item.label}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname.startsWith(item.href)}
+                isActive={pathname.startsWith(item.href) && (item.href !== '/dashboard' || pathname === '/dashboard')}
                 tooltip={item.label}
               >
                 <Link href={item.href}>

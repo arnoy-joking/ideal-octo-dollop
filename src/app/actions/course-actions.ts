@@ -1,11 +1,15 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { addCourse, deleteCourse, updateCourse, getCourses, updateCourseOrder } from '@/lib/courses';
+import { addCourse, deleteCourse, updateCourse, getCourses, updateCourseOrder, getCourseById } from '@/lib/courses';
 import type { Course } from '@/lib/types';
 
 export async function getCoursesAction() {
     return await getCourses();
+}
+
+export async function getCourseByIdAction(courseId: string) {
+    return await getCourseById(courseId);
 }
 
 export async function addCourseAction(courseData: Omit<Course, 'id'>) {

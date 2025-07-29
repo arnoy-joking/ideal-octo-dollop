@@ -34,6 +34,17 @@ export async function getCourseBySlug(slug: string): Promise<Course | undefined>
   return { id: courseDoc.id, ...courseDoc.data() } as Course;
 }
 
+export async function getCourseById(id: string): Promise<Course | undefined> {
+  const courseDocRef = doc(db, 'courses', id);
+  const docSnap = await getDoc(courseDocRef);
+
+  if (!docSnap.exists()) {
+    return undefined;
+  }
+  
+  return { id: docSnap.id, ...docSnap.data() } as Course;
+}
+
 export async function addCourse(courseData: Omit<Course, 'id'>): Promise<Course> {
     const docRef = await addDoc(coursesCollection, { ...courseData });
     
