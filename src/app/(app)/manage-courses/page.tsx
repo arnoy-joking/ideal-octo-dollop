@@ -8,7 +8,6 @@ import { z } from 'zod';
 import type { Course, Lesson } from '@/lib/types';
 import { getCoursesAction, addCourseAction, deleteCourseAction, updateCourseAction, updateCourseOrderAction } from '@/app/actions/course-actions';
 import { parseLessonsFromHtml } from '@/ai/flows/parser-flow';
-import { getPasswordAction, setPasswordAction } from '@/lib/auth';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,7 +54,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, Trash2, Edit, Loader2, Lock, ArrowUp, ArrowDown, Sparkles, KeyRound, Save } from 'lucide-react';
+import { PlusCircle, Trash2, Edit, Loader2, Lock, ArrowUp, ArrowDown, Sparkles } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -324,95 +323,6 @@ function AddEditCourseDialog({ course, onUpdate, children, totalCourses }: { cou
     );
 }
 
-function PasswordManager() {
-    const { toast } = useToast();
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [hasPassword, setHasPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        const fetchPasswordStatus = async () => {
-            setIsLoading(true);
-            const existingPassword = await getPasswordAction();
-            setHasPassword(!!existingPassword);
-            setIsLoading(false);
-        };
-        fetchPasswordStatus();
-    }, []);
-
-    const handleSavePassword = async () => {
-        if (!password) {
-            toast({ title: 'Error', description: 'Password cannot be empty.', variant: 'destructive' });
-            return;
-        }
-        if (password !== confirmPassword) {
-            toast({ title: 'Error', description: 'Passwords do not match.', variant: 'destructive' });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            await setPasswordAction(password);
-            toast({ title: 'Success', description: 'Password has been updated.' });
-            setHasPassword(true);
-            setPassword('');
-            setConfirmPassword('');
-        } catch (error) {
-            toast({ title: 'Error', description: 'Failed to save password.', variant: 'destructive' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-    
-    if (isLoading) {
-        return <Skeleton className="h-48 w-full" />;
-    }
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><KeyRound /> App Password</CardTitle>
-                <CardDescription>
-                    {hasPassword
-                        ? 'Change the password for accessing the application.'
-                        : 'Set a password to protect the application. Leave empty for no password.'}
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input
-                        id="new-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter new password"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                        id="confirm-password"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm new password"
-                    />
-                </div>
-            </CardContent>
-            <CardFooter>
-                 <Button onClick={handleSavePassword} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    {hasPassword ? 'Change Password' : 'Set Password'}
-                </Button>
-            </CardFooter>
-        </Card>
-    );
-}
-
-
 function CourseManager() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [initialOrder, setInitialOrder] = useState<string[]>([]);
@@ -603,7 +513,6 @@ export default function ManageCoursesPage() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto space-y-8">
                 <CourseManager />
-                <PasswordManager />
             </div>
         </main>
     );
