@@ -4,3 +4,4 @@ import '@/ai/flows/goals-flow';
 import '@/ai/flows/routine-flow';
 import '@/ai/flows/parser-flow';
 import '@/ai/flows/chat-flow';
+import '@/ai/flows/theme-flow';

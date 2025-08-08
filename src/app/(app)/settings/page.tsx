@@ -6,22 +6,34 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser } from '@/context/user-context';
-import { getThemeSettingsAction, saveThemeSettingsAction } from '@/app/actions/theme-actions';
+import { getThemeSettingsAction, saveThemeSettingsAction, deleteThemeSettingAction } from '@/app/actions/theme-actions';
+import { generateTheme } from '@/ai/flows/theme-flow';
 import type { ThemeSettings } from '@/lib/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Settings, Image as ImageIcon, Wind, Droplets } from 'lucide-react';
+import { Loader2, Save, Settings, Image as ImageIcon, Wind, Droplets, Trash2, Sparkles, Wand2 } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const themeSettingSchema = z.object({
@@ -35,17 +47,98 @@ const formSchema = z.object({
   'theme-sunset': themeSettingSchema,
   'theme-forest': themeSettingSchema,
   'theme-darkest': themeSettingSchema,
-});
+}).catchall(themeSettingSchema);
+
 
 type FormData = z.infer<typeof formSchema>;
 
-const themeDetails = {
+const builtInThemes = {
   'theme-ocean': { name: 'Ocean', icon: Droplets },
   'theme-sunset': { name: 'Sunset', icon: Wind },
   'theme-forest': { name: 'Forest', icon: ImageIcon },
   'theme-darkest': { name: 'Darkest', icon: Droplets },
 };
 
+function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [prompt, setPrompt] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const { currentUser } = useUser();
+    const { toast } = useToast();
+
+    const handleGenerate = async () => {
+        if (!prompt.trim() || !currentUser) return;
+        setIsGenerating(true);
+        try {
+            const result = await generateTheme({ prompt });
+            
+            const newThemeKey = `theme-${result.name.toLowerCase().replace(/\s+/g, '-')}`;
+
+            const newThemeSettings = {
+                [newThemeKey]: {
+                    imageUrl: result.imageUrl,
+                    opacity: 50, // Default opacity
+                    blur: 4,     // Default blur
+                }
+            };
+
+            const existingSettings = await getThemeSettingsAction(currentUser.id) || {};
+
+            const finalSettings = {
+                ...existingSettings,
+                ...newThemeSettings,
+                // This is where we would inject the new CSS variables if needed,
+                // but we will do this dynamically in the layout instead for now.
+            };
+            
+            await saveThemeSettingsAction(currentUser.id, finalSettings);
+            
+            toast({
+                title: 'Theme Generated!',
+                description: `New theme "${result.name}" has been created and saved.`,
+            });
+            onThemeGenerated();
+            setIsOpen(false);
+            setPrompt('');
+
+        } catch (error) {
+            console.error(error);
+            toast({ title: 'Error', description: 'Failed to generate theme.', variant: 'destructive' });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline"><Wand2 className="mr-2" /> AI Theme Generator</Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Generate a Theme with AI</DialogTitle>
+                    <DialogDescription>Describe the look and feel you want, and AI will create a theme for you.</DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-2">
+                    <Label htmlFor="theme-prompt">Prompt</Label>
+                    <Textarea 
+                        id="theme-prompt"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        placeholder="e.g., A cyberpunk city at night with neon lights" 
+                        rows={3}
+                    />
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+                    <Button onClick={handleGenerate} disabled={isGenerating || !prompt.trim()}>
+                        {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
+                        Generate
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+    );
+}
 
 export default function SettingsPage() {
   const { currentUser, isLoading: isUserLoading } = useUser();
@@ -63,7 +156,7 @@ export default function SettingsPage() {
     },
   });
 
-  useEffect(() => {
+  const fetchSettings = () => {
     if (currentUser) {
       setIsLoading(true);
       getThemeSettingsAction(currentUser.id).then(settings => {
@@ -73,7 +166,9 @@ export default function SettingsPage() {
         setIsLoading(false);
       });
     }
-  }, [currentUser, form]);
+  };
+
+  useEffect(fetchSettings, [currentUser, form]);
 
   const onSubmit = (data: FormData) => {
     if (!currentUser) return;
@@ -84,7 +179,6 @@ export default function SettingsPage() {
           title: 'Settings Saved',
           description: 'Your theme settings have been updated.',
         });
-        // Optionally refresh the page to see changes immediately
         window.location.reload();
       } catch (error) {
         toast({
@@ -95,6 +189,25 @@ export default function SettingsPage() {
       }
     });
   };
+
+  const handleDeleteTheme = (themeKey: string) => {
+    if (!currentUser) return;
+    startTransition(async () => {
+        try {
+            await deleteThemeSettingAction(currentUser.id, themeKey);
+            toast({
+                title: 'Theme Deleted',
+                description: 'The theme has been removed.',
+            });
+            fetchSettings(); // Refetch settings to update the UI
+            setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to delete theme.', variant: 'destructive' });
+        }
+    });
+  };
+  
+  const allThemeKeys = Object.keys(form.getValues());
   
   if (isLoading || isUserLoading) {
     return (
@@ -111,14 +224,17 @@ export default function SettingsPage() {
   return (
     <main className="flex-1 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
-            <Settings className="w-8 h-8" />
-            Theme Settings
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Customize the look and feel of your learning environment.
-          </p>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-4xl font-headline font-bold text-primary flex items-center gap-3">
+                <Settings className="w-8 h-8" />
+                Theme Settings
+            </h1>
+            <p className="text-muted-foreground mt-2">
+                Customize the look and feel of your learning environment.
+            </p>
+          </div>
+          <AIThemeGeneratorDialog onThemeGenerated={fetchSettings} />
         </div>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -131,14 +247,18 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={["theme-ocean"]} className="w-full">
-                        {Object.entries(themeDetails).map(([key, { name, icon: Icon }]) => {
+                        {allThemeKeys.map((key) => {
                             const themeKey = key as keyof FormData;
+                            const isBuiltIn = !!builtInThemes[themeKey as keyof typeof builtInThemes];
+                            const name = isBuiltIn ? builtInThemes[themeKey as keyof typeof builtInThemes].name : key.replace('theme-', ' ').replace('-', ' ');
+                            const Icon = isBuiltIn ? builtInThemes[themeKey as keyof typeof builtInThemes].icon : Sparkles;
+                            
                             return (
                                 <AccordionItem value={key} key={key}>
                                     <AccordionTrigger>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 flex-1">
                                             <Icon className="h-5 w-5 text-primary" />
-                                            <span className="text-lg">{name}</span>
+                                            <span className="text-lg capitalize">{name}</span>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="pt-4 space-y-6">
@@ -189,6 +309,14 @@ export default function SettingsPage() {
                                                 )}
                                             />
                                         </div>
+                                        {!isBuiltIn && (
+                                            <div className="flex justify-end pt-2">
+                                                <Button type="button" variant="destructive" size="sm" onClick={() => handleDeleteTheme(themeKey)}>
+                                                    <Trash2 className="mr-2" />
+                                                    Delete Theme
+                                                </Button>
+                                            </div>
+                                        )}
                                     </AccordionContent>
                                 </AccordionItem>
                             );
@@ -200,7 +328,7 @@ export default function SettingsPage() {
             <div className="flex justify-end">
                 <Button type="submit" disabled={isPending}>
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    Save Settings
+                    Save All Settings
                 </Button>
             </div>
         </form>

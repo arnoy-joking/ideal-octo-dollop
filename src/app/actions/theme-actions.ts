@@ -14,3 +14,9 @@ export async function saveThemeSettingsAction(userId: string, settings: ThemeSet
     revalidatePath('/(app)', 'layout'); // Revalidate the entire app layout
     return { success: true };
 }
+
+export async function deleteThemeSettingAction(userId: string, themeKey: string): Promise<{ success: true }> {
+    await themeDb.deleteThemeSetting(userId, themeKey);
+    revalidatePath('/(app)', 'layout');
+    return { success: true };
+}
