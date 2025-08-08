@@ -87,8 +87,6 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
             const finalSettings = {
                 ...existingSettings,
                 ...newThemeSettings,
-                // This is where we would inject the new CSS variables if needed,
-                // but we will do this dynamically in the layout instead for now.
             };
             
             await saveThemeSettingsAction(currentUser.id, finalSettings);
@@ -131,12 +129,13 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
                 </div>
                 <DialogFooter>
                     <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={handleGenerate} disabled={isGenerating || !prompt.trim()}>
+                    <Button onClick={() => handleGenerate()} disabled={isGenerating || !prompt.trim()}>
                         {isGenerating ? <Loader2 className="mr-2 animate-spin" /> : <Sparkles className="mr-2" />}
                         Generate
                     </Button>
                 </DialogFooter>
             </DialogContent>
+        </Dialog>
     );
 }
 
