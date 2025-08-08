@@ -64,7 +64,7 @@ export default function ClassPage({
       }
     }
     setIsLoading(false);
-  }, [slug, currentUser?.id]);
+  }, [slug]);
 
 
   useEffect(() => {

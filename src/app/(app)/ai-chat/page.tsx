@@ -54,11 +54,12 @@ export default function AIChatPage() {
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const scrollViewportRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (scrollAreaRef.current) {
-            scrollAreaRef.current.scrollTo({
-                top: scrollAreaRef.current.scrollHeight,
+        if (scrollViewportRef.current) {
+            scrollViewportRef.current.scrollTo({
+                top: scrollViewportRef.current.scrollHeight,
                 behavior: 'smooth',
             });
         }
@@ -118,7 +119,7 @@ export default function AIChatPage() {
                     </CardHeader>
 
                     <CardContent className="flex-1 p-0">
-                        <ScrollArea ref={scrollAreaRef} className="h-[55vh] p-4">
+                        <ScrollArea ref={scrollAreaRef} viewportRef={scrollViewportRef} className="h-[55vh] p-4">
                            <div className="space-y-6">
                                 {messages.length > 0 ? (
                                     messages.map((msg, index) => (

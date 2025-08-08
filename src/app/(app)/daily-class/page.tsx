@@ -58,9 +58,14 @@ export default function DailyClassPage() {
 
         if (dayData?.lessons) {
             const lessonPromises = dayData.lessons.map(async (scheduledLesson) => {
-                const course = await getCourseByIdAction(scheduledLesson.courseId);
+                let course = courseMap.get(scheduledLesson.courseId);
+                if (!course) {
+                    course = await getCourseByIdAction(scheduledLesson.courseId);
+                    if (course) {
+                        setCourseMap(prev => new Map(prev).set(course!.id, course!));
+                    }
+                }
                 if (course) {
-                    setCourseMap(prev => new Map(prev).set(course.id, course));
                     return course.lessons.find(l => l.id === scheduledLesson.lessonId);
                 }
                 return null;
@@ -72,9 +77,9 @@ export default function DailyClassPage() {
               // Find the last watched among today's lessons or default to the first
               let lastWatchedId: string | null = null;
               for (const lesson of lessons) {
-                  const course = Array.from(courseMap.values()).find(c => c.lessons.some(l => l.id === lesson.id));
-                  if(course) {
-                    const lw = await getLastWatchedLessonIdAction(userId, course.id);
+                  const courseForLesson = Array.from(courseMap.values()).find(c => c.lessons.some(l => l.id === lesson.id));
+                  if(courseForLesson) {
+                    const lw = await getLastWatchedLessonIdAction(userId, courseForLesson.id);
                     if(lessons.some(l => l.id === lw)) {
                         lastWatchedId = lw;
                     }
@@ -91,7 +96,7 @@ export default function DailyClassPage() {
         }
     }
     setIsLoading(false);
-  }, [currentUser?.id]);
+  }, [currentUser?.id, courseMap]);
 
   useEffect(() => {
     if (!isUserLoading && currentUser) {
