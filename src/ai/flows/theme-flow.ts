@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI flow for generating custom UI themes.
@@ -23,14 +24,25 @@ const ColorSchema = z.object({
 const GenerateThemeOutputSchema = z.object({
   name: z.string().describe('A short, catchy name for the theme, e.g., "Oceanic Serenity" or "Neon Grid".'),
   imageSearchQuery: z.string().describe('A one or two-word search query for Pexels to find a suitable background image for the theme, based on the prompt.'),
-  background: ColorSchema.describe('The main background color.'),
-  foreground: ColorSchema.describe('The main text color.'),
-  primary: ColorSchema.describe('The primary color for buttons and highlights.'),
-  primaryForeground: ColorSchema.describe('The text color for on top of primary elements.'),
-  secondary: ColorSchema.describe('The secondary color for less prominent elements.'),
-  accent: ColorSchema.describe('An accent color for special highlights.'),
-  muted: ColorSchema.describe('A muted color for subtle backgrounds and borders.'),
+  background: ColorSchema.describe('The main background color for the application body.'),
+  foreground: ColorSchema.describe('The main text color used throughout the application.'),
   card: ColorSchema.describe('The background color for card components.'),
+  cardForeground: ColorSchema.describe('The text color for content inside card components.'),
+  popover: ColorSchema.describe('The background color for popovers and dropdown menus.'),
+  popoverForeground: ColorSchema.describe('The text color for content inside popovers and dropdowns.'),
+  primary: ColorSchema.describe('The primary color for main action buttons and highlights.'),
+  primaryForeground: ColorSchema.describe('The text color for content on top of primary elements.'),
+  secondary: ColorSchema.describe('The secondary color for less prominent elements and buttons.'),
+  secondaryForeground: ColorSchema.describe('The text color for content on top of secondary elements.'),
+  muted: ColorSchema.describe('A subtle, muted color for subtle backgrounds and borders.'),
+  mutedForeground: ColorSchema.describe('The text color for content on muted backgrounds.'),
+  accent: ColorSchema.describe('An accent color for special highlights and visual interest.'),
+  accentForeground: ColorSchema.describe('The text color for content on top of accent elements.'),
+  destructive: ColorSchema.describe('A color for destructive actions, like delete buttons.'),
+  destructiveForeground: ColorSchema.describe('The text color for content on top of destructive elements.'),
+  border: ColorSchema.describe('The color for borders on components like cards and inputs.'),
+  input: ColorSchema.describe('The color for the border of input fields.'),
+  ring: ColorSchema.describe('The color for focus rings on interactive elements.'),
   sidebar: ColorSchema.describe('The background color for the sidebar.'),
   sidebarForeground: ColorSchema.describe('The text color for the sidebar.'),
 });
@@ -53,10 +65,9 @@ Instructions:
 2.  **Create a Name:** Devise a short, creative name for the theme.
 3.  **Generate Image Search Query:** Provide a one or two-word search query to find a relevant background image on Pexels.
 4.  **Generate HSL Colors:** Create a harmonious and accessible color palette. Provide HSL values for each required color.
-    -   Ensure sufficient contrast between background and foreground colors.
+    -   Ensure sufficient contrast between background and foreground colors (e.g., card and cardForeground).
     -   The primary and accent colors should be distinct and vibrant but fit the theme.
     -   Muted and secondary colors should be subtle and complementary.
-    -   Sidebar colors should complement the main theme.
     -   **Important:** Provide only the HSL values (hue, saturation, lightness) as numbers for each color property. Do not use the 'hsl()' CSS function syntax.
 5.  **Output Format:** Your response MUST be a valid JSON object matching the defined output schema.
 `,
