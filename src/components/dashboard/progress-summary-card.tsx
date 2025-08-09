@@ -31,14 +31,14 @@ export function ClassGoalCard({
         <CardDescription>Your goal is to watch {DAILY_GOAL} classes today.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
+          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-md">
             <CheckCircle2 className="w-6 h-6 text-green-700" />
             <div>
               <p className="font-semibold text-lg">{watchedCount}</p>
               <p className="text-sm text-muted-foreground">Classes watched</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
+          <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-md">
             <BookOpen className="w-6 h-6 text-primary" />
             <div>
               <p className="font-semibold text-lg">{remaining}</p>

@@ -43,19 +43,19 @@ export function CourseList({ courses, progress }: CourseListProps) {
                 className="rounded-md aspect-video object-cover w-full md:w-80 flex-shrink-0"
                 data-ai-hint="online course"
               />
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col h-full">
                 <h3 className="font-semibold text-lg">{course.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-sm text-muted-foreground mt-1 flex-grow">
                   {course.description}
                 </p>
-              </div>
-              <div className="flex md:flex-col gap-2 w-full md:w-auto mt-4 md:mt-0 self-center">
-                 <Button asChild className="w-full">
-                  <Link href={`/class/${course.slug}`}>
-                    <BookOpen className="mr-2" />
-                    {isStarted ? "Continue" : "Start"}
-                  </Link>
-                </Button>
+                 <div className="mt-4">
+                    <Button asChild className="w-full sm:w-auto">
+                    <Link href={`/class/${course.slug}`}>
+                        <BookOpen className="mr-2" />
+                        {isStarted ? "Continue" : "Start"}
+                    </Link>
+                    </Button>
+                </div>
               </div>
             </div>
           )

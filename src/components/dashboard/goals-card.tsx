@@ -104,7 +104,7 @@ export function GoalsCard() {
             disabled={isSaving || isGenerating}
           />
         ) : (
-          <div className="whitespace-pre-wrap p-3 text-sm min-h-[120px]">
+          <div className="whitespace-pre-wrap p-3 text-sm min-h-[120px] rounded-lg bg-muted/30">
             {goals}
           </div>
         )}
