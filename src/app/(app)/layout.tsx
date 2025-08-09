@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
 import { Header } from "@/components/dashboard/header";
 import { SideNav } from "@/components/dashboard/side-nav";
@@ -15,13 +16,19 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
   if (!settings) return null;
 
   const generateThemeStyles = (themeName: string, themeConfig: ThemeSettings[keyof ThemeSettings]) => {
-    if (!themeConfig || !themeConfig.imageUrl) return '';
+    if (!themeConfig || !themeConfig.imageUrl || !themeConfig.colors) return '';
     // CSS variables are defined here and will be used in globals.css
+    
+    const colorStyles = Object.entries(themeConfig.colors)
+      .map(([colorName, value]) => `        --${colorName}: ${value};`)
+      .join('\n');
+      
     return `
       html.${themeName} {
         --bg-image-url: url('${themeConfig.imageUrl}');
         --bg-opacity: ${themeConfig.opacity / 100};
         --bg-blur: blur(${themeConfig.blur}px);
+${colorStyles}
       }
     `;
   };
@@ -42,15 +49,23 @@ export default function AppLayout({
   const { currentUser, isInitialLoading } = useUser();
   const router = useRouter();
   const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
+  const { themes, setThemes } = useTheme();
 
   useEffect(() => {
     if (!isInitialLoading && !currentUser) {
       router.push('/login');
     }
     if (currentUser) {
-      getThemeSettingsAction(currentUser.id).then(setThemeSettings);
+      getThemeSettingsAction(currentUser.id).then(settings => {
+        setThemeSettings(settings);
+        if (settings) {
+            const customThemeKeys = Object.keys(settings);
+            const newThemes = [...new Set([...themes, ...customThemeKeys])];
+            setThemes(newThemes);
+        }
+      });
     }
-  }, [currentUser, isInitialLoading, router]);
+  }, [currentUser, isInitialLoading, router, setThemes, themes]);
   
   if (isInitialLoading || !currentUser) {
     return (

@@ -14,7 +14,7 @@ import { Check, Droplets, ImageIcon, Sparkles, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const defaultThemes = [
-    { name: "Default", theme: "default", color: "hsl(142 76% 36%)" },
+    { name: "Default", theme: "theme-default", color: "hsl(142 76% 36%)" },
     { name: "Ocean", theme: "theme-ocean", color: "hsl(190 70% 50%)" },
     { name: "Sunset", theme: "theme-sunset", color: "hsl(20 95% 55%)" },
     { name: "Forest", theme: "theme-forest", color: "hsl(130 40% 35%)" },
@@ -33,7 +33,8 @@ const themeIcons = {
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
     const { theme: activeTheme, setTheme, themes: availableThemes } = useTheme();
 
-    const customThemes = availableThemes.filter(t => !defaultThemes.some(dt => dt.theme === t));
+    const uniqueAvailableThemes = Array.from(new Set(availableThemes));
+    const customThemes = uniqueAvailableThemes.filter(t => !defaultThemes.some(dt => dt.theme === t) && t !== 'light' && t !== 'dark' && t !== 'system');
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -72,7 +73,7 @@ export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolea
                                 >
                                      <Sparkles className="h-6 w-6 text-primary" />
                                 </Button>
-                                <span className="text-xs font-medium capitalize">{themeName.replace('theme-', '').replace('-', ' ')}</span>
+                                <span className="text-xs font-medium capitalize">{themeName.replace('theme-', '').replace(/-/g, ' ')}</span>
                             </div>
                         )
                      })}
