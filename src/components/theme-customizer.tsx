@@ -35,7 +35,7 @@ const themeIcons = {
 
 
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
-    const { theme: activeTheme, setTheme } = useTheme();
+    const { theme: activeTheme, setTheme, themes } = useTheme();
     const { currentUser } = useUser();
     const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
 
@@ -44,6 +44,12 @@ export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolea
             getThemeSettingsAction(currentUser.id).then(setThemeSettings);
         }
     }, [currentUser, isOpen]);
+
+    const handleThemeChange = (newTheme: string) => {
+        setTheme(newTheme);
+        // Force a reload to ensure dynamic styles are applied correctly
+        setTimeout(() => window.location.reload(), 100);
+    };
 
     const customThemes = themeSettings 
         ? Object.keys(themeSettings).filter(t => !defaultThemes.some(dt => dt.theme === t))
@@ -67,7 +73,7 @@ export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolea
                                     variant={"outline"}
                                     size="icon"
                                     className={cn("h-16 w-16 rounded-full flex items-center justify-center", activeTheme === t.theme && "border-2 border-primary")}
-                                    onClick={() => setTheme(t.theme)}
+                                    onClick={() => handleThemeChange(t.theme)}
                                 >
                                     <Icon className="h-6 w-6" style={{color: t.color}} />
                                 </Button>
@@ -82,7 +88,7 @@ export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolea
                                     variant={"outline"}
                                     size="icon"
                                     className={cn("h-16 w-16 rounded-full flex items-center justify-center", activeTheme === themeName && "border-2 border-primary")}
-                                    onClick={() => setTheme(themeName)}
+                                    onClick={() => handleThemeChange(themeName)}
                                 >
                                      <Sparkles className="h-6 w-6 text-primary" />
                                 </Button>
