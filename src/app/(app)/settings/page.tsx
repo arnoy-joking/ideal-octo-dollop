@@ -73,7 +73,7 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
         try {
             const result = await generateTheme({ prompt });
             
-            constimageUrl = await getPexelsImageAction(result.imageSearchQuery);
+            const imageUrl = await getPexelsImageAction(result.imageSearchQuery);
 
             const newThemeKey = `theme-${result.name.toLowerCase().replace(/\s+/g, '-')}`;
 
