@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser } from '@/context/user-context';
-import { getThemeSettingsAction, saveThemeSettingsAction, deleteThemeSettingAction } from '@/app/actions/theme-actions';
+import { getThemeSettingsAction, saveThemeSettingsAction, deleteThemeSettingAction, getPexelsImageAction } from '@/app/actions/theme-actions';
 import { generateTheme } from '@/ai/flows/theme-flow';
 import type { ThemeSettings } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,7 @@ const themeSettingSchema = z.object({
   imageUrl: z.string().url({ message: "Please enter a valid URL." }).or(z.literal("")),
   opacity: z.number().min(0).max(100),
   blur: z.number().min(0).max(20),
+  colors: z.record(z.string()).optional(),
 });
 
 const formSchema = z.object({
@@ -72,23 +73,32 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
         try {
             const result = await generateTheme({ prompt });
             
+            constimageUrl = await getPexelsImageAction(result.imageSearchQuery);
+
             const newThemeKey = `theme-${result.name.toLowerCase().replace(/\s+/g, '-')}`;
 
             const newThemeSettings = {
                 [newThemeKey]: {
-                    imageUrl: result.imageUrl,
-                    opacity: 50, // Default opacity
-                    blur: 4,     // Default blur
+                    imageUrl: imageUrl || 'https://images.pexels.com/photos/110854/pexels-photo-110854.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', // fallback image
+                    opacity: 50,
+                    blur: 4,
+                    colors: {
+                        background: `${result.background.h} ${result.background.s}% ${result.background.l}%`,
+                        foreground: `${result.foreground.h} ${result.foreground.s}% ${result.foreground.l}%`,
+                        primary: `${result.primary.h} ${result.primary.s}% ${result.primary.l}%`,
+                        'primary-foreground': `${result.primaryForeground.h} ${result.primaryForeground.s}% ${result.primaryForeground.l}%`,
+                        secondary: `${result.secondary.h} ${result.secondary.s}% ${result.secondary.l}%`,
+                        accent: `${result.accent.h} ${result.accent.s}% ${result.accent.l}%`,
+                        muted: `${result.muted.h} ${result.muted.s}% ${result.muted.l}%`,
+                        card: `${result.card.h} ${result.card.s}% ${result.card.l}% / var(--bg-opacity, 0.6)`,
+                        sidebar: `${result.sidebar.h} ${result.sidebar.s}% ${result.sidebar.l}%`,
+                        'sidebar-foreground': `${result.sidebarForeground.h} ${result.sidebarForeground.s}% ${result.sidebarForeground.l}%`,
+                    }
                 }
             };
 
             const existingSettings = await getThemeSettingsAction(currentUser.id) || {};
-
-            const finalSettings = {
-                ...existingSettings,
-                ...newThemeSettings,
-            };
-            
+            const finalSettings = { ...existingSettings, ...newThemeSettings };
             await saveThemeSettingsAction(currentUser.id, finalSettings);
             
             toast({
@@ -160,7 +170,7 @@ export default function SettingsPage() {
       setIsLoading(true);
       getThemeSettingsAction(currentUser.id).then(settings => {
         if (settings) {
-          form.reset(settings as FormData);
+          form.reset(settings as unknown as FormData);
         }
         setIsLoading(false);
       });
@@ -173,7 +183,7 @@ export default function SettingsPage() {
     if (!currentUser) return;
     startTransition(async () => {
       try {
-        await saveThemeSettingsAction(currentUser.id, data);
+        await saveThemeSettingsAction(currentUser.id, data as unknown as ThemeSettings);
         toast({
           title: 'Settings Saved',
           description: 'Your theme settings have been updated.',
@@ -249,7 +259,7 @@ export default function SettingsPage() {
                         {allThemeKeys.map((key) => {
                             const themeKey = key as keyof FormData;
                             const isBuiltIn = !!builtInThemes[themeKey as keyof typeof builtInThemes];
-                            const name = isBuiltIn ? builtInThemes[themeKey as keyof typeof builtInThemes].name : key.replace('theme-', ' ').replace('-', ' ');
+                            const name = isBuiltIn ? builtInThemes[themeKey as keyof typeof builtInThemes].name : key.replace('theme-', ' ').replace(/-/g, ' ');
                             const Icon = isBuiltIn ? builtInThemes[themeKey as keyof typeof builtInThemes].icon : Sparkles;
                             
                             return (

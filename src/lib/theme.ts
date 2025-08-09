@@ -5,13 +5,17 @@ import type { ThemeSettings } from './types';
 
 const themeSettingsCollectionName = 'themeSettings';
 
-export async function getThemeSettings(userId: string): Promise<ThemeSettings | null> {
+export async function getThemeSettingsForUser(userId: string): Promise<ThemeSettings | null> {
     const settingsDocRef = doc(db, themeSettingsCollectionName, userId);
     const docSnap = await getDoc(settingsDocRef);
     if (docSnap.exists()) {
         return docSnap.data() as ThemeSettings;
     }
     return null;
+}
+
+export async function getThemeSettings(userId: string): Promise<ThemeSettings | null> {
+    return getThemeSettingsForUser(userId);
 }
 
 export async function saveThemeSettings(userId: string, settings: ThemeSettings): Promise<void> {

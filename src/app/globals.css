@@ -200,10 +200,7 @@
     background-position: center;
   }
   
-  html.theme-ocean,
-  html.theme-sunset,
-  html.theme-forest,
-  html.theme-darkest {
+  html[class*="theme-"] {
     body {
         background-image: var(--bg-image-url);
     }
@@ -212,27 +209,27 @@
 
 @layer components {
   /* This rule applies the blur effect to the components when a custom theme is active */
-  html[class^="theme-"] [data-sidebar="sidebar"],
-  html[class^="theme-"] header,
-  html[class^="theme-"] .card,
-  html[class^="theme-"] [role="dialog"],
-  html[class^="theme-"] [role="popover"] {
+  html[class*="theme-"] [data-sidebar="sidebar"],
+  html[class*="theme-"] header,
+  html[class*="theme-"] .card,
+  html[class*="theme-"] [role="dialog"],
+  html[class*="theme-"] [role="popover"] {
       backdrop-filter: var(--bg-blur, blur(4px));
       -webkit-backdrop-filter: var(--bg-blur, blur(4px));
   }
   
   /* These rules apply the semi-transparent background color based on opacity */
-  html[class^="theme-"] [data-sidebar="sidebar"] {
+  html[class*="theme-"] [data-sidebar="sidebar"] {
       background-color: hsla(var(--sidebar-background), var(--bg-opacity, 0.5));
   }
 
-  html[class^="theme-"] header {
+  html[class*="theme-"] header {
       background-color: hsla(var(--background), var(--bg-opacity, 0.5));
   }
 
-  html[class^="theme-"] .card,
-  html[class^="theme-"] [role="dialog"],
-  html[class^="theme-"] [role="popover"] {
+  html[class*="theme-"] .card,
+  html[class*="theme-"] [role="dialog"],
+  html[class*="theme-"] [role="popover"] {
     background-color: hsl(var(--card));
   }
 }

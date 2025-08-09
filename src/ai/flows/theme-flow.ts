@@ -22,7 +22,7 @@ const ColorSchema = z.object({
 
 const GenerateThemeOutputSchema = z.object({
   name: z.string().describe('A short, catchy name for the theme, e.g., "Oceanic Serenity" or "Neon Grid".'),
-  imageUrl: z.string().describe('A URL for a suitable background image for the theme from Unsplash, based on the prompt.'),
+  imageSearchQuery: z.string().describe('A one or two-word search query for Pexels to find a suitable background image for the theme, based on the prompt.'),
   background: ColorSchema.describe('The main background color.'),
   foreground: ColorSchema.describe('The main text color.'),
   primary: ColorSchema.describe('The primary color for buttons and highlights.'),
@@ -51,7 +51,7 @@ User Prompt:
 Instructions:
 1.  **Analyze the Prompt:** Understand the mood, objects, and colors mentioned in the prompt.
 2.  **Create a Name:** Devise a short, creative name for the theme.
-3.  **Find a Background Image:** Provide a high-quality, relevant background image URL from Unsplash.
+3.  **Generate Image Search Query:** Provide a one or two-word search query to find a relevant background image on Pexels.
 4.  **Generate HSL Colors:** Create a harmonious and accessible color palette. Provide HSL values for each required color.
     -   Ensure sufficient contrast between background and foreground colors.
     -   The primary and accent colors should be distinct and vibrant but fit the theme.

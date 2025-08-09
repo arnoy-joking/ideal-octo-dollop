@@ -8,24 +8,34 @@ declare global {
   interface Window {
     onYouTubeIframeAPIReady?: () => void;
     YT?: any;
-    ytCallbacks?: (() => void)[];
   }
 }
 
+let apiLoaded = false;
+let apiLoading = false;
+const callbacks: (()=>void)[] = [];
+
 const loadYouTubeAPI = () => {
-    if (typeof window === 'undefined') return;
-    if (window.ytCallbacks) return;
-    if (window.YT && window.YT.Player) return;
+  if (typeof window === 'undefined') return;
+  if (apiLoaded) {
+    callbacks.forEach(cb => cb());
+    callbacks.length = 0;
+    return;
+  }
+  if (apiLoading) return;
 
-    window.ytCallbacks = [];
-    window.onYouTubeIframeAPIReady = () => {
-        window.ytCallbacks?.forEach(callback => callback());
-        window.ytCallbacks = undefined;
-    };
+  apiLoading = true;
+  window.onYouTubeIframeAPIReady = () => {
+    apiLoaded = true;
+    apiLoading = false;
+    callbacks.forEach(cb => cb());
+    callbacks.length = 0;
+  };
 
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
 };
 
 interface VideoPlayerProps {
@@ -39,7 +49,7 @@ interface VideoPlayerProps {
 export function VideoPlayer({ videoId, title, onVideoEnd, startTime = 0, onProgress }: VideoPlayerProps) {
   const playerRef = useRef<any>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const playerContainerId = `youtube-player-${videoId}-${Math.random()}`;
+  const playerContainerId = `youtube-player-${videoId}-${Math.random().toString(36).substring(7)}`;
 
   const cleanup = useCallback(() => {
     if (progressIntervalRef.current) {
@@ -47,7 +57,11 @@ export function VideoPlayer({ videoId, title, onVideoEnd, startTime = 0, onProgr
       progressIntervalRef.current = null;
     }
     if (playerRef.current && typeof playerRef.current.destroy === 'function') {
-      playerRef.current.destroy();
+      try {
+        playerRef.current.destroy();
+      } catch (e) {
+        console.error("Error destroying YouTube player", e);
+      }
       playerRef.current = null;
     }
   }, []);
@@ -78,21 +92,17 @@ export function VideoPlayer({ videoId, title, onVideoEnd, startTime = 0, onProgr
         },
         events: {
           onStateChange: (event: any) => {
-            // Clear any existing interval
             if (progressIntervalRef.current) {
                 clearInterval(progressIntervalRef.current);
                 progressIntervalRef.current = null;
             }
 
             if (event.data === window.YT.PlayerState.PLAYING) {
-                // Start saving progress every 15 seconds while playing
                 progressIntervalRef.current = setInterval(saveCurrentProgress, 15000);
             } else if (event.data === window.YT.PlayerState.PAUSED) {
-                // Save progress immediately when the user pauses
                 saveCurrentProgress();
             } else if (event.data === window.YT.PlayerState.ENDED) { 
               onVideoEnd();
-              // Save one last time to record the end state
               saveCurrentProgress();
             }
           },
@@ -101,27 +111,23 @@ export function VideoPlayer({ videoId, title, onVideoEnd, startTime = 0, onProgr
   }, [videoId, startTime, onVideoEnd, saveCurrentProgress, playerContainerId, cleanup]);
 
   useEffect(() => {
-    loadYouTubeAPI();
-
     const initPlayer = () => {
-      if (window.YT && window.YT.Player) {
-        createPlayer();
-      } else {
-        window.ytCallbacks?.push(createPlayer);
-      }
+        if (apiLoaded) {
+            createPlayer();
+        } else {
+            callbacks.push(createPlayer);
+            loadYouTubeAPI();
+        }
     };
     
-    const timer = setTimeout(initPlayer, 100);
+    initPlayer();
 
     return () => {
-      clearTimeout(timer);
-      cleanup();
-      if (window.ytCallbacks) {
-        const index = window.ytCallbacks.indexOf(createPlayer);
-        if (index > -1) {
-            window.ytCallbacks.splice(index, 1);
-        }
+      const index = callbacks.indexOf(createPlayer);
+      if (index > -1) {
+        callbacks.splice(index, 1);
       }
+      cleanup();
     };
   }, [createPlayer, cleanup]);
 
