@@ -24,7 +24,7 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
       .join('\n');
       
     return `
-      html.${themeName} {
+      html.${themeName.replace(' ', '-')} {
         --bg-image-url: url('${themeConfig.imageUrl}');
         --bg-opacity: ${themeConfig.opacity / 100};
         --bg-blur: blur(${themeConfig.blur}px);
@@ -37,7 +37,9 @@ ${colorStyles}
     .map(([themeName, themeConfig]) => generateThemeStyles(themeName, themeConfig))
     .join('\n');
 
-  return <style>{styles}</style>;
+  return <style>{`
+    ${styles}
+    `}</style>;
 }
 
 
@@ -49,7 +51,6 @@ export default function AppLayout({
   const { currentUser, isInitialLoading } = useUser();
   const router = useRouter();
   const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
-  const { themes, setThemes } = useTheme();
 
   useEffect(() => {
     if (!isInitialLoading && !currentUser) {
@@ -58,14 +59,9 @@ export default function AppLayout({
     if (currentUser) {
       getThemeSettingsAction(currentUser.id).then(settings => {
         setThemeSettings(settings);
-        if (settings) {
-            const customThemeKeys = Object.keys(settings);
-            const newThemes = [...new Set([...themes, ...customThemeKeys])];
-            setThemes(newThemes);
-        }
       });
     }
-  }, [currentUser, isInitialLoading, router, setThemes, themes]);
+  }, [currentUser, isInitialLoading, router]);
   
   if (isInitialLoading || !currentUser) {
     return (

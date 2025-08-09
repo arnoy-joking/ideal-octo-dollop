@@ -12,6 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Check, Droplets, ImageIcon, Sparkles, Wind } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useUser } from "@/context/user-context";
+import { useEffect, useState } from "react";
+import type { ThemeSettings } from "@/lib/types";
+import { getThemeSettingsAction } from "@/app/actions/theme-actions";
 
 const defaultThemes = [
     { name: "Default", theme: "theme-default", color: "hsl(142 76% 36%)" },
@@ -31,10 +35,19 @@ const themeIcons = {
 
 
 export function ThemeCustomizerDialog({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
-    const { theme: activeTheme, setTheme, themes: availableThemes } = useTheme();
+    const { theme: activeTheme, setTheme } = useTheme();
+    const { currentUser } = useUser();
+    const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
 
-    const uniqueAvailableThemes = Array.from(new Set(availableThemes));
-    const customThemes = uniqueAvailableThemes.filter(t => !defaultThemes.some(dt => dt.theme === t) && t !== 'light' && t !== 'dark' && t !== 'system');
+    useEffect(() => {
+        if (currentUser) {
+            getThemeSettingsAction(currentUser.id).then(setThemeSettings);
+        }
+    }, [currentUser, isOpen]);
+
+    const customThemes = themeSettings 
+        ? Object.keys(themeSettings).filter(t => !defaultThemes.some(dt => dt.theme === t))
+        : [];
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>

@@ -31,7 +31,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const users = await getUsers();
-  // Base themes available to everyone initially
+  // Base themes available to everyone initially. AI-generated themes are added dynamically via CSS.
   const baseThemes = ["light", "dark", "system", "theme-default", "theme-ocean", "theme-sunset", "theme-forest", "theme-darkest"];
 
   return (
