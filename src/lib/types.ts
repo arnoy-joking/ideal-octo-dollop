@@ -54,6 +54,7 @@ export type ThemeSettings = {
     imageUrl: string;
     opacity: number;
     blur: number;
+    radius: number;
     colors?: Record<string, string>;
   };
 };

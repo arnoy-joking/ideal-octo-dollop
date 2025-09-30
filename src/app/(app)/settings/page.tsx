@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Settings, Image as ImageIcon, Wind, Droplets, Trash2, Sparkles, Wand2 } from 'lucide-react';
+import { Loader2, Save, Settings, Image as ImageIcon, Wind, Droplets, Trash2, Sparkles, Wand2, Radius } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -40,6 +40,7 @@ const themeSettingSchema = z.object({
   imageUrl: z.string().url({ message: "Please enter a valid URL." }).or(z.literal("")),
   opacity: z.number().min(0).max(100),
   blur: z.number().min(0).max(20),
+  radius: z.number().min(0).max(2),
   colors: z.record(z.string()).optional(),
 });
 
@@ -76,6 +77,7 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
                     imageUrl: imageUrl || 'https://images.pexels.com/photos/110854/pexels-photo-110854.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2', // fallback image
                     opacity: 50,
                     blur: 4,
+                    radius: 0.5,
                     colors: {
                         background: `${result.background.h} ${result.background.s}% ${result.background.l}%`,
                         foreground: `${result.foreground.h} ${result.foreground.s}% ${result.foreground.l}%`,
@@ -162,22 +164,28 @@ export default function SettingsPage() {
   const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    // Using a resolver is tricky with dynamic fields, so we'll handle validation manually if needed.
   });
 
   const fetchSettings = () => {
     if (currentUser) {
       setIsLoading(true);
       getThemeSettingsAction(currentUser.id).then(settings => {
-        const fullSettings = {
-            'theme-ocean': { imageUrl: '', opacity: 50, blur: 4 },
-            'theme-sunset': { imageUrl: '', opacity: 50, blur: 4 },
-            'theme-forest': { imageUrl: '', opacity: 50, blur: 4 },
-            'theme-darkest': { imageUrl: '', opacity: 50, blur: 4 },
+        const defaults = {
+            imageUrl: '',
+            opacity: 50,
+            blur: 4,
+            radius: 0.5,
+        };
+        const fullSettings: ThemeSettings = {
+            'theme-ocean': { ...defaults, ...(settings && settings['theme-ocean']) },
+            'theme-sunset': { ...defaults, ...(settings && settings['theme-sunset']) },
+            'theme-forest': { ...defaults, ...(settings && settings['theme-forest']) },
+            'theme-darkest': { ...defaults, ...(settings && settings['theme-darkest']) },
             ...settings
-        }
+        };
         form.reset(fullSettings);
-        setThemeSettings(fullSettings)
+        setThemeSettings(fullSettings);
         setIsLoading(false);
       });
     }
@@ -279,21 +287,13 @@ export default function SettingsPage() {
                                     <AccordionContent className="pt-4 space-y-6">
                                         <div className="space-y-2">
                                             <Label htmlFor={`${key}-imageUrl`}>Background Image URL</Label>
-                                            <Controller
-                                                name={`${themeKey}.imageUrl`}
-                                                control={form.control}
-                                                render={({ field }) => (
-                                                    <Input
-                                                        id={`${key}-imageUrl`}
-                                                        placeholder="https://images.unsplash.com/..."
-                                                        {...field}
-                                                    />
-                                                )}
+                                            <Input
+                                                id={`${key}-imageUrl`}
+                                                placeholder="https://images.unsplash.com/..."
+                                                {...form.register(`${themeKey}.imageUrl`)}
                                             />
-                                            {form.formState.errors[themeKey]?.imageUrl && (
-                                                <p className="text-sm text-destructive">{form.formState.errors[themeKey]?.imageUrl?.message}</p>
-                                            )}
                                         </div>
+
                                         <div className="space-y-2">
                                             <Label>Opacity ({form.watch(`${themeKey}.opacity`)}%)</Label>
                                              <Controller
@@ -301,7 +301,7 @@ export default function SettingsPage() {
                                                 control={form.control}
                                                 render={({ field: { value, onChange } }) => (
                                                     <Slider
-                                                        value={[value]}
+                                                        value={[value || 50]}
                                                         onValueChange={(vals) => onChange(vals[0])}
                                                         max={100}
                                                         step={1}
@@ -309,6 +309,7 @@ export default function SettingsPage() {
                                                 )}
                                             />
                                         </div>
+
                                          <div className="space-y-2">
                                             <Label>Blur ({form.watch(`${themeKey}.blur`)}px)</Label>
                                              <Controller
@@ -316,7 +317,7 @@ export default function SettingsPage() {
                                                 control={form.control}
                                                 render={({ field: { value, onChange } }) => (
                                                     <Slider
-                                                        value={[value]}
+                                                        value={[value || 4]}
                                                         onValueChange={(vals) => onChange(vals[0])}
                                                         max={20}
                                                         step={1}
@@ -324,6 +325,23 @@ export default function SettingsPage() {
                                                 )}
                                             />
                                         </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Radius ({form.watch(`${themeKey}.radius`)}rem)</Label>
+                                             <Controller
+                                                name={`${themeKey}.radius`}
+                                                control={form.control}
+                                                render={({ field: { value, onChange } }) => (
+                                                    <Slider
+                                                        value={[value || 0.5]}
+                                                        onValueChange={(vals) => onChange(vals[0])}
+                                                        max={2}
+                                                        step={0.1}
+                                                    />
+                                                )}
+                                            />
+                                        </div>
+
                                         {!isBuiltIn && (
                                             <div className="flex justify-end pt-2">
                                                 <Button type="button" variant="destructive" size="sm" onClick={() => handleDeleteTheme(themeKey)}>
