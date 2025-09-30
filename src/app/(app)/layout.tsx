@@ -16,9 +16,12 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
   const { theme } = useTheme();
   if (!settings) return null;
 
-  const currentThemeSettings = settings[theme || ''] || null;
+  const currentThemeSettings = settings[theme || ''] || { opacity: 50, blur: 4, imageUrl: '' };
+  const opacityValue = currentThemeSettings.opacity / 100;
+  const blurValue = currentThemeSettings.blur;
 
-  const generateColorStyles = (colors: Record<string, string>) => {
+  const generateColorStyles = (colors: Record<string, string> | undefined) => {
+    if (!colors) return '';
     return Object.entries(colors)
       .map(([colorName, value]) => `        --${colorName}: ${value};`)
       .join('\n');
@@ -26,9 +29,9 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
 
   const styles = Object.entries(settings)
     .map(([themeName, themeConfig]) => {
-      if (!themeConfig || !themeConfig.colors) return '';
+      if (!themeConfig) return '';
       return `
-        html.${themeName.replace(/ /g, '-')} {
+        .${themeName.replace(/ /g, '-')} {
           ${generateColorStyles(themeConfig.colors)}
         }
       `;
@@ -36,10 +39,10 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
     .join('\n');
 
   return <style>{`
-    html {
+    :root {
       --bg-image-url: ${currentThemeSettings?.imageUrl ? `url('${currentThemeSettings.imageUrl}')` : 'none'};
-      --bg-opacity: ${currentThemeSettings ? currentThemeSettings.opacity / 100 : 1};
-      --bg-blur: ${currentThemeSettings ? currentThemeSettings.blur : 0}px;
+      --bg-opacity: ${opacityValue};
+      --bg-blur: ${blurValue}px;
     }
     ${styles}
     `}</style>;
@@ -88,6 +91,7 @@ export default function AppLayout({
       <div className="fixed inset-0 w-full h-full bg-cover bg-center -z-10" style={{
         backgroundImage: 'var(--bg-image-url)',
       }} />
+       <div className="fixed inset-0 w-full h-full -z-[5] bg-background/80 backdrop-blur-[var(--bg-blur)]" />
       <SidebarProvider defaultOpen={false}>
         <Sidebar>
           <SideNav />
