@@ -16,8 +16,8 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
   const { theme } = useTheme();
   if (!settings) return null;
 
-  const currentThemeSettings = settings[theme || ''];
-  
+  const currentThemeSettings = settings[theme || ''] || null;
+
   const generateColorStyles = (colors: Record<string, string>) => {
     return Object.entries(colors)
       .map(([colorName, value]) => `        --${colorName}: ${value};`)
@@ -38,8 +38,8 @@ function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
   return <style>{`
     html {
       --bg-image-url: ${currentThemeSettings?.imageUrl ? `url('${currentThemeSettings.imageUrl}')` : 'none'};
-      --bg-opacity: ${currentThemeSettings ? currentThemeSettings.opacity / 100 : 0.5};
-      --bg-blur: ${currentThemeSettings ? currentThemeSettings.blur : 4}px;
+      --bg-opacity: ${currentThemeSettings ? currentThemeSettings.opacity / 100 : 1};
+      --bg-blur: ${currentThemeSettings ? currentThemeSettings.blur : 0}px;
     }
     ${styles}
     `}</style>;
@@ -85,22 +85,18 @@ export default function AppLayout({
   return (
     <>
       <DynamicThemeStyles settings={themeSettings} />
-      <div className="bg-background text-foreground font-body antialiased" style={{
+      <div className="fixed inset-0 w-full h-full bg-cover bg-center -z-10" style={{
         backgroundImage: 'var(--bg-image-url)',
-        backgroundSize: 'cover',
-        backgroundAttachment: 'fixed',
-        backgroundPosition: 'center'
-      }}>
-        <SidebarProvider defaultOpen={false}>
-          <Sidebar>
-            <SideNav />
-          </Sidebar>
-          <SidebarInset>
-            <Header />
-            {children}
-          </SidebarInset>
-        </SidebarProvider>
-      </div>
+      }} />
+      <SidebarProvider defaultOpen={false}>
+        <Sidebar>
+          <SideNav />
+        </Sidebar>
+        <SidebarInset>
+          <Header />
+          {children}
+        </SidebarInset>
+      </SidebarProvider>
     </>
   );
 }

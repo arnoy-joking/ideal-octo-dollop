@@ -199,39 +199,23 @@
 }
 
 @layer components {
-  /* This rule applies the blur and opacity effect to the components when a custom theme is active */
-  html[class*="theme-"] [data-sidebar="sidebar"],
-  html[class*="theme-"] header,
-  html[class*="theme-"] .card,
-  html[class*="theme-"] [role="dialog"],
-  html[class*="theme-"] [role="popover"] {
-    -webkit-backdrop-filter: blur(var(--bg-blur));
-    backdrop-filter: blur(var(--bg-blur));
-  }
-  
-  /* These rules apply the semi-transparent background color using the opacity variable */
-  html[class*="theme-"] [data-sidebar="sidebar"] {
-    background-color: hsla(var(--sidebar), var(--bg-opacity));
-  }
-  html[class*="theme-"] header {
-    background-color: hsla(var(--background), var(--bg-opacity));
-  }
-  html[class*="theme-"] .card, 
-  html[class*="theme-"] [role="dialog"] {
-    background-color: hsla(var(--card), var(--bg-opacity));
-  }
-  html[class*="theme-"] [role="popover"] {
-     background-color: hsla(var(--popover), var(--bg-opacity));
+  .card, [role="dialog"], [role="popover"], header, [data-sidebar="sidebar"] {
+    @apply backdrop-blur-[var(--bg-blur)];
   }
 
-  /* We still need the original background for non-themed components or fallbacks */
-  [data-sidebar="sidebar"] {
-      background-color: hsl(var(--sidebar));
+  .card, [role="dialog"] {
+    background-color: hsla(var(--card), var(--bg-opacity, 1));
   }
+
+  [role="popover"] {
+    background-color: hsla(var(--popover), var(--bg-opacity, 1));
+  }
+
   header {
-      background-color: hsl(var(--background));
+    background-color: hsla(var(--background), var(--bg-opacity, 1));
   }
-  .card, [role="dialog"], [role="popover"] {
-    background-color: hsl(var(--card));
+
+  [data-sidebar="sidebar"] {
+    background-color: hsla(var(--sidebar), var(--bg-opacity, 1));
   }
 }
