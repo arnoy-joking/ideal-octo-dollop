@@ -43,13 +43,7 @@ const themeSettingSchema = z.object({
   colors: z.record(z.string()).optional(),
 });
 
-const formSchema = z.object({
-  'theme-ocean': themeSettingSchema,
-  'theme-sunset': themeSettingSchema,
-  'theme-forest': themeSettingSchema,
-  'theme-darkest': themeSettingSchema,
-}).catchall(themeSettingSchema);
-
+const formSchema = z.record(themeSettingSchema);
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -165,24 +159,25 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
+  const [themeSettings, setThemeSettings] = useState<ThemeSettings | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      'theme-ocean': { imageUrl: '', opacity: 50, blur: 4 },
-      'theme-sunset': { imageUrl: '', opacity: 50, blur: 4 },
-      'theme-forest': { imageUrl: '', opacity: 50, blur: 4 },
-      'theme-darkest': { imageUrl: '', opacity: 50, blur: 4 },
-    },
   });
 
   const fetchSettings = () => {
     if (currentUser) {
       setIsLoading(true);
       getThemeSettingsAction(currentUser.id).then(settings => {
-        if (settings) {
-          form.reset(settings as unknown as FormData);
+        const fullSettings = {
+            'theme-ocean': { imageUrl: '', opacity: 50, blur: 4 },
+            'theme-sunset': { imageUrl: '', opacity: 50, blur: 4 },
+            'theme-forest': { imageUrl: '', opacity: 50, blur: 4 },
+            'theme-darkest': { imageUrl: '', opacity: 50, blur: 4 },
+            ...settings
         }
+        form.reset(fullSettings);
+        setThemeSettings(fullSettings)
         setIsLoading(false);
       });
     }
@@ -194,7 +189,7 @@ export default function SettingsPage() {
     if (!currentUser) return;
     startTransition(async () => {
       try {
-        await saveThemeSettingsAction(currentUser.id, data as unknown as ThemeSettings);
+        await saveThemeSettingsAction(currentUser.id, data as ThemeSettings);
         toast({
           title: 'Settings Saved',
           description: 'Your theme settings have been updated.',
@@ -227,7 +222,7 @@ export default function SettingsPage() {
     });
   };
   
-  const allThemeKeys = Object.keys(form.getValues());
+  const allThemeKeys = themeSettings ? Object.keys(themeSettings) : [];
   
   if (isLoading || isUserLoading) {
     return (
