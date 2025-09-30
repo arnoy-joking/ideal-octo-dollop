@@ -21,29 +21,25 @@ export async function deleteThemeSettingAction(userId: string, themeKey: string)
     return { success: true };
 }
 
-export async function getPexelsImageAction(query: string): Promise<string | null> {
-  const apiKey = process.env.PEXELS_API_KEY;
+export async function getPixabayImageAction(query: string): Promise<string | null> {
+  const apiKey = process.env.PIXABAY_API_KEY;
   if (!apiKey) {
-    console.warn('Pexels API key is not configured.');
+    console.warn('Pixabay API key is not configured.');
     return null;
   }
 
   try {
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`, {
-      headers: {
-        Authorization: apiKey,
-      },
-    });
+    const response = await fetch(`https://pixabay.com/api/?key=${apiKey}&q=${encodeURIComponent(query)}&image_type=photo&orientation=horizontal&per_page=3`);
 
     if (!response.ok) {
-      console.error(`Pexels API error: ${response.statusText}`);
+      console.error(`Pixabay API error: ${response.statusText}`);
       return null;
     }
 
     const data = await response.json();
-    return data.photos?.[0]?.src?.large2x || null;
+    return data.hits?.[0]?.largeImageURL || data.hits?.[0]?.webformatURL || null;
   } catch (error) {
-    console.error('Failed to fetch image from Pexels', error);
+    console.error('Failed to fetch image from Pixabay', error);
     return null;
   }
 }

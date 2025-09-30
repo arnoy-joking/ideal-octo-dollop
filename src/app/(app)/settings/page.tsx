@@ -6,7 +6,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useUser } from '@/context/user-context';
-import { getThemeSettingsAction, saveThemeSettingsAction, deleteThemeSettingAction, getPexelsImageAction } from '@/app/actions/theme-actions';
+import { getThemeSettingsAction, saveThemeSettingsAction, deleteThemeSettingAction, getPixabayImageAction } from '@/app/actions/theme-actions';
 import { generateTheme } from '@/ai/flows/theme-flow';
 import type { ThemeSettings } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -73,7 +73,7 @@ function AIThemeGeneratorDialog({ onThemeGenerated }: { onThemeGenerated: () => 
         try {
             const result = await generateTheme({ prompt });
             
-            const imageUrl = await getPexelsImageAction(result.imageSearchQuery);
+            const imageUrl = await getPixabayImageAction(result.imageSearchQuery);
 
             const newThemeKey = `theme-${result.name.toLowerCase().replace(/\s+/g, '-')}`;
 
