@@ -13,31 +13,34 @@ import type { ThemeSettings } from '@/lib/types';
 import { getThemeSettingsAction } from '@/app/actions/theme-actions';
 
 function DynamicThemeStyles({ settings }: { settings: ThemeSettings | null }) {
+  const { theme } = useTheme();
   if (!settings) return null;
 
-  const generateThemeStyles = (themeName: string, themeConfig: ThemeSettings[keyof ThemeSettings]) => {
-    if (!themeConfig || !themeConfig.imageUrl || !themeConfig.colors) return '';
-    // CSS variables are defined here and will be used in globals.css
-    
-    const colorStyles = Object.entries(themeConfig.colors)
+  const currentThemeSettings = settings[theme || ''];
+  
+  const generateColorStyles = (colors: Record<string, string>) => {
+    return Object.entries(colors)
       .map(([colorName, value]) => `        --${colorName}: ${value};`)
       .join('\n');
-      
-    return `
-      html.${themeName.replace(' ', '-')} {
-        --bg-image-url: url('${themeConfig.imageUrl}');
-        --bg-opacity: ${themeConfig.opacity / 100};
-        --bg-blur: blur(${themeConfig.blur}px);
-${colorStyles}
-      }
-    `;
   };
-  
+
   const styles = Object.entries(settings)
-    .map(([themeName, themeConfig]) => generateThemeStyles(themeName, themeConfig))
+    .map(([themeName, themeConfig]) => {
+      if (!themeConfig || !themeConfig.colors) return '';
+      return `
+        html.${themeName.replace(/ /g, '-')} {
+          ${generateColorStyles(themeConfig.colors)}
+        }
+      `;
+    })
     .join('\n');
 
   return <style>{`
+    html {
+      --bg-image-url: ${currentThemeSettings?.imageUrl ? `url('${currentThemeSettings.imageUrl}')` : 'none'};
+      --bg-opacity: ${currentThemeSettings ? currentThemeSettings.opacity / 100 : 0.5};
+      --bg-blur: ${currentThemeSettings ? currentThemeSettings.blur : 4}px;
+    }
     ${styles}
     `}</style>;
 }
@@ -82,17 +85,22 @@ export default function AppLayout({
   return (
     <>
       <DynamicThemeStyles settings={themeSettings} />
-      <SidebarProvider defaultOpen={false}>
-        <Sidebar>
-          <SideNav />
-        </Sidebar>
-        <SidebarInset>
-          <Header />
-          {children}
-        </SidebarInset>
-      </SidebarProvider>
+      <div className="bg-background text-foreground font-body antialiased" style={{
+        backgroundImage: 'var(--bg-image-url)',
+        backgroundSize: 'cover',
+        backgroundAttachment: 'fixed',
+        backgroundPosition: 'center'
+      }}>
+        <SidebarProvider defaultOpen={false}>
+          <Sidebar>
+            <SideNav />
+          </Sidebar>
+          <SidebarInset>
+            <Header />
+            {children}
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
     </>
   );
 }
-
-    
